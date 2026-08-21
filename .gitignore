@@ -1,0 +1,25 @@
+# Python caches and local build products
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+.pytest_cache/
+
+# Local profiling and parser outputs
+*.prof
+critical_regression_output/
+output/
+outputs/
+debug_page*/
+checkpoints/
+issues/
+tests/regression_manifests/
+
+# Local documents and case-specific regression assets
+local_case_regressions/
+
+# Operating-system and editor files
+.DS_Store
+.idea/
+.vscode/

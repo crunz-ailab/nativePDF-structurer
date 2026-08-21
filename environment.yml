@@ -1,0 +1,13 @@
+name: nativePDF-structurer
+channels:
+  - conda-forge
+dependencies:
+  #@GPT Python 3.12 is the validated runtime; pip installs the exact reference packages without modifying an existing environment.
+  - python=3.12
+  - pip
+  - pip:
+      - PyMuPDF==1.28.0
+      - numpy==2.5.1
+      - opencv-python-headless==5.0.0.93
+      - Pillow==12.3.0
+      - -e .

@@ -1,0 +1,5 @@
+#@GPT These exact versions reproduce the validated reference environment without upgrading unrelated packages.
+PyMuPDF==1.28.0
+numpy==2.5.1
+opencv-python-headless==5.0.0.93
+Pillow==12.3.0
