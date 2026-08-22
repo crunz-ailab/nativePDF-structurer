@@ -50,7 +50,6 @@ from .geometry import rect_area
 from .visual_assets import extract_source_image_blocks
 
 
-#@GPT 页眉页尾候选层保持“位置预筛 + 内容摘要硬匹配”，样本覆盖和最终过滤由调用方负责。
 
 def merge_footer_drawing_candidates(
     candidates: list[dict],
@@ -219,7 +218,6 @@ def merge_footer_drawing_candidates(
                 ),
                 "source_drawing_indices": member_indices,
                 "composite_member_count": len(group),
-                #@GPT 页尾镜像匹配只比较对象距最近外侧页边的距离；outer_side保留作审计，不要求奇偶页具有同一绝对X位置。
                 "horizontal_position_mode": "outer_edge",
                 "outer_side": outer_side,
                 "outer_offset": outer_offset,
@@ -232,7 +230,6 @@ def extract_header_footer_candidates(
     page: fitz.Page,
     page_dict: dict,
     edge: str,
-    #@GPT 候选提取复用页面级drawing缓存，避免重复调用PyMuPDF路径提取接口。
     drawings: list[dict],
     *,
     edge_page_ratio_by_edge: dict[str, float],
@@ -255,7 +252,6 @@ def extract_header_footer_candidates(
     page_area = rect_area(page.rect)
     candidates: list[dict] = []
 
-    #@GPT 页眉候选的内容摘要可能遍历大量矢量路径；先只根据bbox判断是否位于页边候选带，避免对正文对象计算昂贵签名。
     def candidate_edge_offset(bbox: fitz.Rect) -> float | None:
         edge_offset = (
             bbox.y0 - page.rect.y0
@@ -266,7 +262,6 @@ def extract_header_footer_candidates(
             return None
         if edge_offset > edge_limit:
             return None
-        #@GPT 页尾候选的整个bbox必须位于底部候选带内，防止从正文延伸至页底的高对象被误接纳。
         if (
             edge == "footer"
             and bbox.y0
@@ -281,7 +276,6 @@ def extract_header_footer_candidates(
         kind: str,
         bbox: fitz.Rect,
         content_signature: str | None,
-        #@GPT 只有drawing候选需要保存其在页面级缓存中的稳定索引；后续凭该索引精确剔除已确认的页眉/页尾矢量，不影响文字、页码或邻近图片。
         source_drawing_index: int | None = None,
     ) -> None:
         if content_signature is None:
@@ -297,7 +291,6 @@ def extract_header_footer_candidates(
                 "bbox": bbox,
                 "content_signature": content_signature,
                 "height": bbox.height,
-                #@GPT 页尾镜像对象除高度外还硬匹配宽度，避免不同长度的同样式水平线因归一化内容摘要相同而误聚类。
                 "width": bbox.width,
                 "x0": bbox.x0,
                 "edge_offset": edge_offset,
@@ -311,11 +304,9 @@ def extract_header_footer_candidates(
             }
         )
 
-    #@GPT 页眉可由图片或矢量组成；页尾只学习重复矢量边界，保留页码文字和页尾图片。
     if edge == "header":
         for image in extract_source_image_blocks(page_dict):
             image_bbox = fitz.Rect(image["bbox"])
-            #@GPT 先按bbox筛选页边候选，正文大图不进入缩略图哈希。
             if candidate_edge_offset(image_bbox) is None:
                 continue
             add_candidate(
@@ -326,9 +317,7 @@ def extract_header_footer_candidates(
                 ),
             )
 
-    #@GPT 页面级缓存由文档编排阶段统一准备，候选提取不重复读取drawing。
     page_drawings = drawings
-    #@GPT 枚举稳定索引，使确认的页眉/页尾矢量可以在后续矢量阶段前精确排除。
     for drawing_index, drawing in enumerate(page_drawings):
         drawing_rect = fitz.Rect(drawing["rect"])
         drawing_area = rect_area(drawing_rect)
@@ -343,7 +332,6 @@ def extract_header_footer_candidates(
         ):
             continue
 
-        #@GPT 先做页边bbox筛选，只为候选带内对象计算较昂贵的内容摘要。
         if candidate_edge_offset(drawing_rect) is None:
             continue
 
@@ -354,7 +342,6 @@ def extract_header_footer_candidates(
             source_drawing_index=drawing_index,
         )
 
-    #@GPT 页尾先把相邻字形或碎片聚成复合对象，再应用候选数量预算；页眉直接使用原候选。
     prepared_candidates = (
         merge_footer_drawing_candidates(
             candidates=candidates,
@@ -384,7 +371,6 @@ def header_footer_candidates_match(
     edge_tolerance_points: float,
 ) -> bool:
     """判断两个图片/矢量候选是否为同一重复页眉或页尾对象。"""
-    #@GPT 页尾复合候选按距最近外侧页边的距离匹配，以支持奇偶页镜像；页眉和普通候选使用绝对x0。
     uses_outer_edge_position = (
         first.get("horizontal_position_mode") == "outer_edge"
         and second.get("horizontal_position_mode")
@@ -417,7 +403,6 @@ def header_footer_candidates_match(
 
 def build_header_footer_templates(
     document: fitz.Document,
-    #@GPT 模板构建接收文档级drawing缓存，确保采样页与正式页面使用相同图元视图。
     drawings_cache: dict[int, list[dict]],
     *,
     sample_start_page: int,
@@ -450,14 +435,12 @@ def build_header_footer_templates(
     )
     results: dict[str, dict] = {}
 
-    #@GPT 页眉和页尾独立建立模板；某一边缘没有命中时，不影响另一边缘继续学习和启用。
     detection_edges = (
         ["header", "footer"]
         if detect_footer
         else ["header"]
     )
     for edge in detection_edges:
-        #@GPT 页眉和页尾分别根据自己的支持率计算稳定页数，任一边缘未启用不会影响另一边缘。
         minimum_page_support = max(
             1,
             math.ceil(
@@ -607,7 +590,6 @@ def build_header_footer_templates(
             else [],
         }
 
-    #@GPT 关闭页尾时仍输出结构完整的禁用记录，保持报告和JSON字段稳定。
     if not detect_footer:
         results["footer"] = {
             "enabled": False,
@@ -624,7 +606,6 @@ def detect_page_header_footer_bands(
     page: fitz.Page,
     page_dict: dict,
     templates: dict[str, dict],
-    #@GPT 逐页模板匹配复用页面级drawing缓存，避免候选身份和检测阶段发生漂移。
     drawings: list[dict],
     *,
     detect_footer: bool,
@@ -656,7 +637,6 @@ def detect_page_header_footer_bands(
         },
     }
 
-    #@GPT 逐页独立匹配页眉和页尾模板；页尾命中门槛可以与页眉不同，不会因页眉未命中而跳过页尾。
     detection_edges = (
         ["header", "footer"]
         if detect_footer
@@ -727,7 +707,6 @@ def detect_page_header_footer_bands(
         if len(matched_candidates) < minimum_matched_objects:
             continue
 
-        #@GPT 仅在本页达到该边缘的独立门槛后确认排除；复合候选展开全部稳定drawing索引，单对象也走同一字段。
         matched_drawing_candidates = [
             candidate
             for candidate in matched_candidates
@@ -747,7 +726,6 @@ def detect_page_header_footer_bands(
             [round(value, 3) for value in candidate["bbox"]]
             for candidate in matched_drawing_candidates
         ]
-        #@GPT 页尾报告记录候选由多少原始drawing构成及其左右镜像位置，便于直接确认奇偶页是否整组命中。
         record[edge]["matched_composite_member_counts"] = [
             int(candidate.get("composite_member_count", 1))
             for candidate in matched_drawing_candidates
@@ -835,7 +813,6 @@ def filter_confirmed_header_footer_drawings(
     return filtered_drawings, header_footer_record
 
 
-#@GPT 页眉文字提取只在空间带已确认后执行；模板学习本身仍不读取或匹配文字内容。
 def extract_header_text_for_markdown(
     text_lines: list[dict],
     header_band: fitz.Rect | None,

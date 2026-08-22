@@ -4,12 +4,10 @@ import unittest
 
 import fitz
 
-#@GPT 几何单元格提取已收敛到table_structure，测试保持相同输入输出断言。
 from nativePDF_structurer.table_structure import extract_geometry_table_data
 
 
 class TableGeometryTests(unittest.TestCase):
-    #@GPT 几何提取应按文本中心点落入的行列边界归属单元格，并按单元格内的坐标稳定排序。
     def test_builds_cells_and_counts_populated_rows_and_columns(self) -> None:
         data, populated_rows, populated_columns = extract_geometry_table_data(
             bbox=fitz.Rect(0, 0, 100, 40),
@@ -48,7 +46,6 @@ class TableGeometryTests(unittest.TestCase):
         self.assertEqual(populated_rows, 2)
         self.assertEqual(populated_columns, 2)
 
-    #@GPT 空边界和空文本不能制造虚假内容；返回矩阵形状仍由几何边界决定。
     def test_empty_geometry_returns_empty_cells(self) -> None:
         data, populated_rows, populated_columns = extract_geometry_table_data(
             bbox=fitz.Rect(0, 0, 10, 10),

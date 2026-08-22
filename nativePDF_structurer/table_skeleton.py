@@ -34,7 +34,6 @@ import fitz
 from .geometry import as_fitz_rect
 from .inventory import PageInventory
 
-#@GPT 轴向规则线组件检测使用显式的连接容差、最小跨度和坐标精度，不读取全局策略。
 def find_axis_skeleton_components(
     axis_geometry_index: dict,
     cluster_bbox: fitz.Rect,
@@ -49,14 +48,12 @@ def find_axis_skeleton_components(
     cluster_rect = fitz.Rect(cluster_bbox).normalize()
 
     def in_cluster(rule: dict) -> bool:
-        #@GPT 直接在已有set中逐ID查询，避免为密集页面的每条逻辑线创建临时集合。
         source_ids = rule.get("element_ids", [])
         if not source_ids or not all(
             element_id in allowed_element_ids
             for element_id in source_ids
         ):
             return False
-        #@GPT 逻辑线矩形在索引构建阶段已经规范化，此处只读复用。
         rect = rule["rect"]
         return not (
             rect.x1 < cluster_rect.x0 - tolerance
@@ -65,32 +62,27 @@ def find_axis_skeleton_components(
             or rect.y0 > cluster_rect.y1 + tolerance
         )
 
-    #@GPT 极短轴向碎片先在“共线恢复之后”排除：不影响由多个短片段拼成的真实表格边，但避免器件图中微小矩形进入交点索引。
     horizontal_rules = [
         rule
         for rule in axis_geometry_index[
             "logical_horizontal_rules"
         ]
         if in_cluster(rule)
-        #@GPT 直接读取规范化矩形的跨度，避免重复物化fitz.Rect。
         and rule["rect"].width >= minimum_structural_span
     ]
     vertical_rules = [
         rule
         for rule in axis_geometry_index["logical_vertical_rules"]
         if in_cluster(rule)
-        #@GPT 竖向结构跨度同样直接读取缓存矩形。
         and rule["rect"].height >= minimum_structural_span
     ]
     if not horizontal_rules or not vertical_rules:
         return []
 
-    #@GPT 竖线按X位置排序后用二分查找候选区间；只比较横线跨度内可能相交的竖线，避免密集页的全量两两运算。
     sorted_vertical = sorted(
         (
             index,
             rule,
-            #@GPT 直接读取轻量轴向矩形的纵向边界，减少拓扑扫描中的对象构造。
             rule["rect"].y0,
             rule["rect"].y1,
         )
@@ -117,7 +109,6 @@ def find_axis_skeleton_components(
     for horizontal_index, horizontal_rule in enumerate(
         horizontal_rules
     ):
-        #@GPT 横线拓扑扫描只读取已缓存跨度，不在循环中重复构造矩形。
         horizontal_rect = horizontal_rule["rect"]
         first_vertical = bisect_left(
             vertical_positions,
@@ -131,7 +122,6 @@ def find_axis_skeleton_components(
             vertical_index, vertical_rule, vertical_y0, vertical_y1 = sorted_vertical[
                 sorted_index
             ]
-            #@GPT 规则线通常是零厚度矩形，不能用面积交集；用“竖线X落在横线跨度、横线Y落在竖线跨度”判断拓扑交点，并允许既有表格连接容差。
             horizontal_y = horizontal_rule["position"]
             if (
                 horizontal_rect.x0 - tolerance
@@ -184,7 +174,6 @@ def find_axis_skeleton_components(
                 for rule in component_vertical
             }
         )
-        #@GPT 单个矩形的两条横边和两条竖边不足以证明是表格；至少一个方向必须形成两个单元格。
         spans_multiple_cells = (
             len(horizontal_positions) >= 3
             and len(vertical_positions_in_component) >= 2
@@ -200,7 +189,6 @@ def find_axis_skeleton_components(
             *component_vertical,
         ]
         component_bbox = fitz.Rect(
-            #@GPT 组件bbox由全部轴向规则的四个极值构造，最终在PyMuPDF边界处物化为fitz.Rect。
             min(rule["rect"].x0 for rule in all_rules),
             min(rule["rect"].y0 for rule in all_rules),
             max(rule["rect"].x1 for rule in all_rules),
@@ -216,7 +204,6 @@ def find_axis_skeleton_components(
         outer_horizontal_support = (
             any(
                 abs(
-                    #@GPT 外沿支撑判断直接读取规则坐标。
                     rule["rect"].y0
                     - component_bbox.y0
                 )
@@ -254,7 +241,6 @@ def find_axis_skeleton_components(
             {
                 "bbox": component_bbox,
                 "source_element_ids": source_ids,
-                #@GPT 组件内部保留实际逻辑线，选择阶段可直接生成“一条逻辑线一个path”；该内部字段不写入页面审计。
                 "_logical_rules": all_rules,
                 "horizontal_rule_count": len(component_horizontal),
                 "vertical_rule_count": len(component_vertical),
@@ -283,7 +269,6 @@ def find_axis_skeleton_components(
 
 
 
-#@GPT 无完整骨架时对合并轴向规则执行方向均衡的固定预算选择，预算由调用方显式传入。
 def select_budgeted_axis_rules_without_complete_skeleton(
     rules: list[dict],
     cluster_bbox: fitz.Rect,
@@ -353,7 +338,6 @@ def select_budgeted_axis_rules_without_complete_skeleton(
     ]
 
 
-#@GPT 轴向骨架为空时按稳定空间顺序选取有限drawing，保证结果可重复且受调用方预算约束。
 def select_cluster_table_budget(
     cluster_drawings: list[dict],
     *,
@@ -374,11 +358,9 @@ def select_cluster_table_budget(
     )[:drawing_budget]
 
 
-#@GPT 大簇骨架选择只依赖显式的页面索引、台账、预算和几何容差。
 def select_cluster_table_skeleton_drawings(
     cluster_drawings: list[dict],
     cluster_bbox: fitz.Rect,
-    #@GPT 页面轴向索引和台账是必需输入，确保骨架来源可追溯且无需重复扫描PDF路径。
     axis_geometry_index: dict,
     page_inventory: PageInventory,
     drawing_budget: int,
@@ -403,7 +385,6 @@ def select_cluster_table_skeleton_drawings(
         minimum_structural_span=minimum_structural_span,
         coordinate_decimal_places=coordinate_decimal_places,
     )
-    #@GPT 完整骨架直接消费组件中的合并逻辑线，避免按父drawing重新展开无关路径。
     selected_logical_rules: list[dict] = []
     selected_rule_object_ids: set[int] = set()
     for component in components:
@@ -413,9 +394,7 @@ def select_cluster_table_skeleton_drawings(
             selected_rule_object_ids.add(id(rule))
             selected_logical_rules.append(rule)
 
-    #@GPT 即使暂时没有形成完整网格，也优先把当前簇内的轴向规则线交给find_tables；比按空间位置截断更可能保留真实外框。
     if not selected_logical_rules:
-        #@GPT 簇边界容差预先展开为四个标量，避免每条逻辑线重复构造矩形和执行相同加减法。
         cluster_tolerance = (
             alignment_tolerance
         )
@@ -429,21 +408,18 @@ def select_cluster_table_skeleton_drawings(
                 *axis_geometry_index["logical_horizontal_rules"],
                 *axis_geometry_index["logical_vertical_rules"],
             ]
-            #@GPT 逐项查询已有set并拒绝空来源列表，避免在密集簇中创建大量临时集合。
             if all(
                 element_id in allowed_element_ids
                 for element_id in rule.get("element_ids", [])
             )
             and rule.get("element_ids")
             and not (
-                #@GPT 逻辑轴线矩形已规范化，可直接与预计算簇边界比较。
                 rule["rect"].x1 < cluster_x0
                 or rule["rect"].x0 > cluster_x1
                 or rule["rect"].y1 < cluster_y0
                 or rule["rect"].y0 > cluster_y1
             )
         ]
-        #@GPT 未形成完整网格时仍对合并后的逻辑线执行预算选择，避免将海量原始路径直接交给find_tables。
         selected_logical_rules = (
             select_budgeted_axis_rules_without_complete_skeleton(
                 rules=eligible_rules,
@@ -466,7 +442,6 @@ def select_cluster_table_skeleton_drawings(
         if page_inventory.id_for_payload(drawing, "drawing")
         is not None
     }
-    #@GPT 每条合并逻辑规则只生成一个合成path；几何来自原片段并集，Claim通过_source_element_ids追溯全部来源drawing。
     selected_drawings: list[dict] = []
     for rule in selected_logical_rules:
         source_element_ids = sorted(
@@ -479,7 +454,6 @@ def select_cluster_table_skeleton_drawings(
         source_drawing = drawing_by_id.get(source_element_ids[0])
         if source_drawing is None:
             continue
-        #@GPT 内部使用轻量AxisRect，仅在调用PyMuPDF find_tables()前物化fitz.Rect。
         rule_rect = as_fitz_rect(rule["rect"])
         if rule.get("orientation") == "h":
             rule_item = (

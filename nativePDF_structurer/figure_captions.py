@@ -20,7 +20,6 @@ from collections.abc import Callable
 import fitz
 
 
-#@GPT 图题必须同时满足图号结构、视觉邻接和无竞争正文；靠近图片本身不是充分条件。
 
 def classify_figure_caption_roles(
     text_lines: list[dict],
@@ -140,7 +139,6 @@ def classify_figure_caption_roles(
                     )
                 if lies_between:
                     competing_lines.append(other)
-            #@GPT 图题与图片之间存在未归属正文时，不因距离接近而强行绑定。
             if competing_lines:
                 continue
 

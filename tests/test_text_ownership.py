@@ -22,7 +22,6 @@ class TextOwnershipTests(unittest.TestCase):
             ],
         )
 
-    #@GPT 文字框达到重叠门槛时应分配给存活候选，低于门槛且没有显式声明时应保留在正文。
     def test_overlap_threshold_controls_text_assignment(self) -> None:
         inventory = self._inventory()
         claims = [
@@ -58,7 +57,6 @@ class TextOwnershipTests(unittest.TestCase):
         )
         self.assertEqual(below_threshold["owner_by_text_element_id"], {})
 
-    #@GPT 显式Claim文字提议即使不落入结构bbox也应保留；多候选时仍按检测器优先级稳定裁决。
     def test_explicit_text_and_detector_priority(self) -> None:
         inventory = self._inventory()
         claims = [

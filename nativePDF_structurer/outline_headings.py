@@ -22,7 +22,6 @@ import fitz
 from .geometry import rect_area, union_rects
 
 
-#@GPT 书签匹配只规范化空格和全角字符，并允许结构编号前缀剥离；不使用模糊相似度。
 def normalize_heading_match_text(text: str) -> str:
     """返回用于书签匹配的紧凑规范化文本。"""
     normalized = unicodedata.normalize("NFKC", str(text))
@@ -57,7 +56,6 @@ def outline_text_matches_for_audit(text: str, outline_entry: dict) -> bool:
     return outline_text_matches(text, outline_entry)
 
 
-#@GPT 书签分配限制在同一PDF文本块的连续最多三行，并优先使用书签目标坐标解决同名标题冲突。
 def assign_pdf_outline_text_matches_to_lines(
     candidate_lines: list[dict],
     outline_entries: list[dict],
@@ -230,7 +228,6 @@ def assign_pdf_outline_entries_to_lines(
             continue
 
         if len(entry_group) == 1:
-            #@GPT 单书签也不能只取最近文本；在候选集合内先选最大标题字号，再用目标距离打破同字号并列，避免目标锚点更靠近正文说明。
             chosen_lines = [
                 min(
                     nearby_lines,
@@ -254,7 +251,6 @@ def assign_pdf_outline_entries_to_lines(
                 )
             ]
         else:
-            #@GPT 共享锚点不能逐书签独立取“最近行”，否则章标题和首个小节会抢同一行；先选附近字号最大的N行，再统一配对。
             chosen_lines = sorted(
                 nearby_lines,
                 key=lambda line: (

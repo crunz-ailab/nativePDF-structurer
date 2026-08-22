@@ -18,7 +18,6 @@ from .page_contract import validate_page_context
 from .result import ParseResult
 
 
-#@GPT 页面检测阶段只修改PageRunContext，文档结果在页面完全结束后由这一入口一次接收；集中提交避免中途异常留下半页persistent state，也为后续抽取process_page()建立稳定返回边界。
 def commit_page_context(
     result: ParseResult,
     context: PageRunContext,
@@ -28,11 +27,9 @@ def commit_page_context(
     """Append every persistent page artifact without changing detector data."""
 
     if validate:
-        #@GPT 只在debug路径附加契约警告，最简Markdown模式完全不执行该检查，也不改变既有输出目录和文件内容。
         context.page_record["page_contract_warnings"] = (
             validate_page_context(context)
         )
-        #@GPT 同步保留实际完成阶段顺序，便于看到契约警告后直接定位跳过或错序的阶段；该字段只进入debug页面记录。
         context.page_record["page_contract_stage_history"] = list(
             context.stage_history
         )

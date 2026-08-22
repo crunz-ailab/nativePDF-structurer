@@ -12,7 +12,6 @@ from nativePDF_structurer.regression_manifest import (
 
 
 class RegressionManifestTests(unittest.TestCase):
-    #@GPT 测试同时覆盖嵌套相对路径和稳定排序，防止不同文件系统遍历顺序造成无意义的manifest变动。
     def test_build_manifest_uses_sorted_relative_paths(self) -> None:
         with tempfile.TemporaryDirectory() as temporary_dir:
             root = Path(temporary_dir)
@@ -28,7 +27,6 @@ class RegressionManifestTests(unittest.TestCase):
                 ["nested/a.bin", "z.txt"],
             )
 
-    #@GPT 成功校验和内容变化使用同一份manifest，确保工具不是只比较文件名或大小。
     def test_verify_manifest_detects_content_change(self) -> None:
         with tempfile.TemporaryDirectory() as temporary_dir:
             root = Path(temporary_dir) / "output"
@@ -45,7 +43,6 @@ class RegressionManifestTests(unittest.TestCase):
                 ["sha256 mismatch: document.md"],
             )
 
-    #@GPT 路径集合是输出契约的一部分；单独验证缺失和新增文件，避免图片重复或CSV消失时hash工具仍误报通过。
     def test_verify_manifest_detects_missing_and_unexpected_files(self) -> None:
         with tempfile.TemporaryDirectory() as temporary_dir:
             root = Path(temporary_dir) / "output"

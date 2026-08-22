@@ -12,7 +12,6 @@ from nativePDF_structurer.claims import (
 
 
 class ClaimPolicyTests(unittest.TestCase):
-    #@GPT Claim格式测试固定集合归一化、feature子集、置信度夹取和bbox转正语义，避免模块迁移后清单字节内容发生变化。
     def test_create_claim_manifest_normalizes_contract_fields(self) -> None:
         claim = create_claim_manifest(
             detector_name="visual_region",
@@ -34,7 +33,6 @@ class ClaimPolicyTests(unittest.TestCase):
         self.assertEqual(claim["bbox"], [10.0, 5.0, 20.0, 30.0])
         self.assertEqual(claim["reason_codes"], ["image", "vector"])
 
-    #@GPT 优先级测试保证当前策略仍是表格高于分隔符、视觉区域和原图，未知检测器保持0而不是隐式继承其他类型。
     def test_effective_priority_uses_central_policy(self) -> None:
         self.assertEqual(
             claim_effective_priority(

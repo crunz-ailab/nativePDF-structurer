@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import ast
-#@GPT 模块docstring契约使用正则定位不缩进的英文概要行。
 import re
 import unittest
 from pathlib import Path
@@ -10,7 +9,6 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 
 
-#@GPT 公共API文档契约通过AST读取docstring，避免测试为了检查文档而导入PyMuPDF、OpenCV和完整解析流水线。
 def _qualified_docstring(path: Path, qualified_name: str) -> str | None:
     """Return a top-level or class-method docstring without importing code.
 
@@ -39,7 +37,6 @@ def _qualified_docstring(path: Path, qualified_name: str) -> str | None:
 
 
 class DocumentationContractTests(unittest.TestCase):
-    #@GPT 架构文档必须覆盖当前状态边界、Claim所有权和双bbox规则，防止文档与实现发生漂移。
     def test_architecture_document_describes_current_boundaries(self) -> None:
         text = (ROOT / "docs" / "architecture.md").read_text(encoding="utf-8")
         for required in (
@@ -58,12 +55,10 @@ class DocumentationContractTests(unittest.TestCase):
         ):
             self.assertIn(required, text)
 
-    #@GPT README必须把架构指南暴露给使用者，否则新用户只能从巨型兼容核心反推项目结构。
     def test_readme_links_architecture_guide(self) -> None:
         text = (ROOT / "README.md").read_text(encoding="utf-8")
         self.assertIn("docs/architecture.md", text)
 
-    #@GPT 正式公共API必须同时包含英文和中文docstring；内部检测器辅助函数不纳入该强制清单，避免机械扩写降低可读性。
     def test_public_api_docstrings_are_bilingual(self) -> None:
         public_symbols = {
             "nativePDF_structurer/config.py": (
@@ -109,7 +104,6 @@ class DocumentationContractTests(unittest.TestCase):
                         qualified_name,
                     )
 
-    #@GPT 所有模块统一使用中文完整块在前、英文完整块在后；总述不缩进，章节列表按Google Style缩进。
     def test_all_module_docstrings_follow_bilingual_google_style(self) -> None:
         module_paths = sorted((ROOT / "nativePDF_structurer").glob("*.py"))
         self.assertEqual(len(module_paths), 40)

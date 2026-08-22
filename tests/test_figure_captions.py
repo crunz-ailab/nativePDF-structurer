@@ -5,7 +5,6 @@ import fitz
 from nativePDF_structurer.figure_captions import classify_figure_caption_roles
 
 class FigureCaptionTests(unittest.TestCase):
-    #@GPT 图号结构且紧邻视觉区域、两者间无正文时应建立唯一图题关系。
     def test_assigns_adjacent_caption(self) -> None:
         line = {"text": "图 1 - 示例", "bbox": fitz.Rect(10, 32, 60, 40), "angle": 0, "block_line_count": 1}
         records = classify_figure_caption_roles(

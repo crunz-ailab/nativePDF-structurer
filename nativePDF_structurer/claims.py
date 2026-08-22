@@ -18,7 +18,6 @@ from typing import Any
 import fitz
 
 
-#@GPT 检测器优先级是Claim仲裁的公共策略，不属于某个页面检测器；独立模块让表格、视觉区域和原图策略可以在不修改核心流水线的情况下统一调整和测试。
 CLAIM_DETECTOR_PRIORITY = {
     "table_detector": 300,
     "text_separator": 250,
@@ -27,7 +26,6 @@ CLAIM_DETECTOR_PRIORITY = {
 }
 
 
-#@GPT Claim清单创建函数只负责格式归一化：claimed自动进入input，feature只能来自claimed，置信度限制在0到1之间；不承担候选生死或图元归属决策。
 def create_claim_manifest(
     detector_name: str,
     output_element_id: str,
@@ -71,7 +69,6 @@ def create_claim_manifest(
     }
 
 
-#@GPT 有效优先级保留为独立函数，即使当前等于检测器基础优先级，未来增加结构型降级规则时也能保证仲裁和审计报告共用同一入口。
 def claim_effective_priority(
     claim: dict[str, Any],
     detector_priority: dict[str, int],

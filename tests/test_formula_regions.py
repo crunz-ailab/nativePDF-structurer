@@ -15,14 +15,12 @@ from nativePDF_structurer.formula_regions import (
 
 
 class FormulaRegionTests(unittest.TestCase):
-    #@GPT 双栏公式按文本框中心分栏，跨越中缝的公式才进入full，避免左右栏同高度串联。
     def test_formula_column_key(self) -> None:
         page = fitz.Rect(0, 0, 200, 300)
         self.assertEqual(formula_column_key(fitz.Rect(10, 10, 60, 30), page), "left")
         self.assertEqual(formula_column_key(fitz.Rect(140, 10, 190, 30), page), "right")
         self.assertEqual(formula_column_key(fitz.Rect(80, 10, 120, 30), page), "full")
 
-    #@GPT 公式候选只依赖原生文本层字体/符号结构，并单独保留公式编号，不调用OCR或模型。
     def test_extracts_formula_and_equation_number(self) -> None:
         page_dict = {
             "blocks": [
@@ -64,7 +62,6 @@ class FormulaRegionTests(unittest.TestCase):
         self.assertTrue(records[0]["is_formula_candidate"])
         self.assertTrue(records[1]["is_equation_number"])
 
-    #@GPT 公式碎片只在同一栏且垂直间距不超过策略门限时合并，编号再作为独立锚点附着。
     def test_clusters_fragments_and_attaches_number(self) -> None:
         candidates = [
             {
@@ -89,7 +86,6 @@ class FormulaRegionTests(unittest.TestCase):
         self.assertEqual(clusters[0]["equation_numbers"], [number])
         self.assertEqual(clusters[0]["bbox"].x1, 65.0)
 
-    #@GPT 无公式页面应返回空记录和空Markdown，不调用截图接口。
     def test_process_empty_formula_page(self) -> None:
         page = type("Page", (), {"rect": fitz.Rect(0, 0, 100, 100)})()
         records, markdown, owned, _seconds = process_page_formula_regions(

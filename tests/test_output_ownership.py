@@ -8,7 +8,6 @@ from nativePDF_structurer.output_ownership import (
 
 
 class OutputOwnershipTests(unittest.TestCase):
-    #@GPT 存活Claim应保留记录和Markdown，落选Claim应产生可审计suppression动作并写入真实输出路径。
     def test_survival_and_suppression_are_separated(self) -> None:
         records = [
             {"claim_id": "visual#1", "output_path": "/tmp/one.png"},
@@ -58,7 +57,6 @@ class OutputOwnershipTests(unittest.TestCase):
         self.assertTrue(records[0]["claim_resolution"]["active"])
         self.assertFalse(records[1]["claim_resolution"]["active"])
 
-    #@GPT 存活父表格/父视觉块时，子视觉原子应被抑制但记录保留；父Claim失败时不能误删子输出。
     def test_parent_visual_ownership_suppresses_only_active_child(self) -> None:
         records = [
             {

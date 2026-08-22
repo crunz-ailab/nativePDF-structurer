@@ -62,7 +62,6 @@ from .run_state import (
     PageTableCandidateFinalization,
     PageTableDetectionResult,
 )
-#@GPT 表格检测器复用独立的骨架选择和结构策略，使检测流程、候选语义与输出职责保持清晰边界。
 from .table_skeleton import (
     select_cluster_table_budget,
     select_cluster_table_skeleton_drawings,
@@ -87,7 +86,6 @@ from .table_output import infer_table_rotation, rotate_table_data
 from .visual_assets import draw_rect_on_visual_mask, image_is_large_enough
 
 
-#@GPT 预聚簇参数集中描述掩码分辨率、闭运算距离和局部图元筛选策略。
 @dataclass(frozen=True)
 class TablePreclusterDependencies:
     mask_pixels_per_point: float
@@ -99,7 +97,6 @@ class TablePreclusterDependencies:
     drawing_is_long_horizontal_single_line: Callable[[dict], bool]
 
 
-#@GPT 表格预聚簇使用局部闭运算生成find_tables输入域；它不决定最终截图边界，也不执行跨候选归属。
 def build_pre_table_drawing_clusters(
     page: fitz.Page,
     excluded_header_footer_rects: list[fitz.Rect],
@@ -147,7 +144,6 @@ def build_pre_table_drawing_clusters(
                 drawing_labels.get("long_horizontal_stroke", False)
             )
         else:
-            #@GPT 未提供台账标签时现场计算等价的局部几何属性，保证该函数可以独立调用。
             drawing_rect = fitz.Rect(drawing["rect"])
             drawing_is_degenerate = (
                 drawing_rect.width <= 0
@@ -187,7 +183,6 @@ def build_pre_table_drawing_clusters(
                 drawing_area,
             )
         )
-        #@GPT 长水平细线暂不进入闭运算，防止其把相邻器件图和小表格桥成同一检测簇；重叠附着仍可归回局部簇。
         if drawing_is_filled_bar or drawing_is_long_stroke:
             continue
         candidates.append({"bbox": drawing_rect})
@@ -346,7 +341,6 @@ def build_pre_table_drawing_clusters(
     )
 
 
-#@GPT 原table_fallback.py已并入检测主题模块；开放框和局部闭框补检与原生检测共享同一轴向缓存和候选生命周期。
 def detect_geometry_fallback_tables(
     page: fitz.Page,
     text_lines: list[dict],
@@ -374,7 +368,6 @@ def detect_geometry_fallback_tables(
     )
 
     if axis_geometry_index is not None and not has_synthetic_skeleton_inputs:
-        #@GPT 只筛选当前检测域drawing对应的逻辑线，避免补检重新扫描或扩大到整页。
         index_by_payload_identity = {
             id(drawing): element_id
             for element_id, drawing in axis_geometry_index[
@@ -409,7 +402,6 @@ def detect_geometry_fallback_tables(
             )
         ]
     else:
-        #@GPT 合成骨架drawing或无完整轴向索引的调用通过逐drawing分类建立所需规则线视图。
         axis_rules = [
             rule
             for drawing in page_drawings
@@ -586,7 +578,6 @@ def detect_geometry_fallback_tables(
     return candidates
 
 
-#@GPT 原table_frame_detection.py已并入检测主题模块；局部闭框与开放框补检共用相同规则线、文本和页眉页尾排除语义。
 def detect_simple_cluster_frame_tables(
     page: fitz.Page,
     text_lines: list[dict],
@@ -720,13 +711,11 @@ def detect_simple_cluster_frame_tables(
             )
         )
     return candidates
-#@GPT 表格总编排串联整页/大簇路径、预算骨架、原生检测、几何补检、去重和Claim，外部策略均通过显式依赖传入。
 def detect_tables_by_drawing_clusters(
     page: fitz.Page,
     text_lines: list[dict],
     excluded_header_footer_rects: list[fitz.Rect],
     drawings: list[dict],
-    #@GPT 页面台账与轴向索引是表格检测的必需缓存，用于稳定ID追踪和规则线复用。
     page_inventory: PageInventory,
     axis_geometry_index: dict,
     *,
@@ -752,7 +741,6 @@ def detect_tables_by_drawing_clusters(
     """按初始空间簇检测原生表格和局部规则线表格。"""
     if len(drawings) <= cluster_table_drawing_budget:
         native_tables = page.find_tables(paths=drawings).tables
-        #@GPT 整页低于预算时检测域就是整页；写入统一来源bbox，使后续前置overlap不必根据检测模式分支。
         for table in native_tables:
             table.source_cluster_bbox = fitz.Rect(page.rect)
         native_tables = [
@@ -772,7 +760,6 @@ def detect_tables_by_drawing_clusters(
             text_lines=text_lines,
             excluded_header_footer_rects=excluded_header_footer_rects,
             drawings=drawings,
-            #@GPT 整页小表格同样复用页面轴向索引；补检内部仍会执行表格专用1pt横线恢复，不重复解析drawing。
             axis_geometry_index=axis_geometry_index,
             rule_alignment_tolerance_points=(
                 fallback_table_rule_alignment_tolerance_points
@@ -791,7 +778,6 @@ def detect_tables_by_drawing_clusters(
             group_horizontal_rules_by_span=group_horizontal_rules_by_span,
             table_structure_dependencies=table_structure_dependencies,
         )
-        #@GPT 几何补检同样记录检测域；整页模式下来源bbox为整页，保持与原生表格一致的候选字段。
         for table in fallback_tables:
             table.source_cluster_bbox = fitz.Rect(page.rect)
 
@@ -808,12 +794,10 @@ def detect_tables_by_drawing_clusters(
                 fallback_table_native_expansion_area_ratio
             ),
         )
-        #@GPT 整页低于预算时也必须执行最终候选去重；否则PyMuPDF原生结果与几何补检结果会同时保留同一张表的嵌套bbox。
         combined_tables = deduplicate_overlapping_table_candidates(
             combined_tables
         )
 
-        #@GPT 在生成Claim和文件名之前按页面坐标排序，确保表格编号与物理阅读顺序一致。
         combined_tables = sorted(
             combined_tables,
             key=lambda table: (
@@ -822,7 +806,6 @@ def detect_tables_by_drawing_clusters(
             ),
         )
 
-        #@GPT 整页模式只声明检测器实际接收的父drawing ID；发生候选冲突时再惰性展开原子路径，避免密集页预先物化全部items。
         whole_page_input_ids = page_inventory.ids_for_payloads(
             drawings,
             "drawing",
@@ -832,7 +815,6 @@ def detect_tables_by_drawing_clusters(
                 whole_page_input_ids
             )
 
-        #@GPT 整页和大簇路径共用同一Claim构建器，保证字段、输入ID约束和置信度映射一致。
         claims = build_table_claims(
             page_number=page.number + 1,
             tables=combined_tables,
@@ -845,7 +827,6 @@ def detect_tables_by_drawing_clusters(
             "mode": "whole_page_under_budget",
             "cluster_count": 1,
             "tested_drawing_count": len(drawings),
-            #@GPT 普通页没有预算截断，也没有基于空检测结果提前结束的大簇。
             "budget_limited_cluster_count": 0,
             "non_table_early_stop_count": 0,
             "early_stopped_cluster_count": 0,
@@ -855,12 +836,10 @@ def detect_tables_by_drawing_clusters(
         page=page,
         excluded_header_footer_rects=excluded_header_footer_rects,
         drawings=drawings,
-        #@GPT P4步骤2：表格主链已持有本页台账，传给预聚簇复用原始drawing的bbox和纯局部标签；不新增任何检测条件。
         page_inventory=page_inventory,
         dependencies=table_precluster_dependencies,
     )
     detected_tables: list = []
-    #@GPT 分别统计预算受限簇和检测后确认无表格证据的簇，避免把性能门控与检测结论混为一类。
     budget_limited_cluster_count = 0
     non_table_early_stop_count = 0
     tested_drawing_count = 0
@@ -873,7 +852,6 @@ def detect_tables_by_drawing_clusters(
         cluster_bbox = fitz.Rect(cluster["bbox"])
         cluster_drawings = cluster["drawings"]
         if len(cluster_drawings) > cluster_table_drawing_budget:
-            #@GPT 大簇优先选择完整轴向骨架；只有骨架不可用时，选择器内部才使用确定性的预算子集。
             skeleton_selection = (
                 select_cluster_table_skeleton_drawings(
                     cluster_drawings=cluster_drawings,
@@ -912,7 +890,6 @@ def detect_tables_by_drawing_clusters(
                 skeleton_selection_modes[
                     "legacy_spatial_budget_fallback"
                 ] += 1
-            #@GPT 这里说明是否使用了规则线骨架，不再把“预算截断”误写成该簇一定不是表格。
             budget_limited_cluster_count += 1
         else:
             tested_drawings = cluster_drawings
@@ -937,7 +914,6 @@ def detect_tables_by_drawing_clusters(
             text_lines=text_lines,
             excluded_header_footer_rects=excluded_header_footer_rects,
             drawings=tested_drawings,
-            #@GPT 大簇骨架选择只影响原生find_tables输入；补检在合成骨架drawing上沿用局部规则解析，避免索引视图再次改变小表格语义。
             axis_geometry_index=None,
             rule_alignment_tolerance_points=(
                 fallback_table_rule_alignment_tolerance_points
@@ -963,7 +939,6 @@ def detect_tables_by_drawing_clusters(
                 excluded_header_footer_rects=excluded_header_footer_rects,
                 cluster_bbox=cluster_bbox,
                 drawings=tested_drawings,
-                #@GPT 与原生补检保持同一合成骨架输入，不再把页面级逻辑线索引传入第二套补检。
                 axis_geometry_index=None,
                 page_inventory=None,
                 drawing_axis_rule=drawing_axis_rule,
@@ -977,7 +952,6 @@ def detect_tables_by_drawing_clusters(
                 table_structure_dependencies=table_structure_dependencies,
             )
         )
-        #@GPT 把“产生该表格的初始空间簇”写入候选；前置归属可直接判断表格是否完整位于检测簇内，不再等待最终视觉大簇形成后反推。
         for table in [*native_tables, *fallback_tables]:
             table.source_cluster_bbox = fitz.Rect(cluster_bbox)
         cluster_tables = combine_native_and_fallback_tables(
@@ -993,8 +967,6 @@ def detect_tables_by_drawing_clusters(
                 fallback_table_native_expansion_area_ratio
             ),
         )
-        #@GPT 每个候选保存本簇真实检测输入ID；先声明父drawing，只有冲突对象才在归属阶段展开其items。
-        #@GPT 骨架输入可能是从复杂父drawing复制出的单item合成对象，优先读取其原始稳定ID；普通簇仍走台账反向索引。
         cluster_input_ids = sorted(
             {
                 element_id
@@ -1016,12 +988,10 @@ def detect_tables_by_drawing_clusters(
                 cluster_input_ids
             )
         if not cluster_tables and len(cluster_drawings) > cluster_table_drawing_budget:
-            #@GPT 大簇在预算内没有任何表格结果，后续对象按“明显非表格簇”处理，不再展开整簇路径。
             non_table_early_stop_count += 1
             continue
         detected_tables.extend(cluster_tables)
 
-    #@GPT 整页和大簇路径共用相同的重叠候选去重策略。
     deduplicated = deduplicate_overlapping_table_candidates(
         detected_tables
     )
@@ -1034,7 +1004,6 @@ def detect_tables_by_drawing_clusters(
         ),
     )
 
-    #@GPT 簇模式通过统一Claim构建器读取source_cluster_bbox等候选元数据。
     claims = build_table_claims(
         page_number=page.number + 1,
         tables=final_tables,
@@ -1055,7 +1024,6 @@ def detect_tables_by_drawing_clusters(
         ),
         "skeleton_component_count": skeleton_component_count,
         "skeleton_selection_modes": dict(skeleton_selection_modes),
-        #@GPT 报告分别暴露预算受限簇和无表格结果簇；early_stopped字段作为公开兼容别名映射到后者。
         "budget_limited_cluster_count": budget_limited_cluster_count,
         "non_table_early_stop_count": non_table_early_stop_count,
         # "early_stopped_cluster_count": early_stopped_cluster_count,
@@ -1063,7 +1031,6 @@ def detect_tables_by_drawing_clusters(
     }, claims
 
 
-#@GPT 原table_pipeline.py已并入检测主题模块；页面表格阶段与底层检测现在共享一个粗粒度维护入口，但输出序列化仍独立留在table_output。
 @dataclass(frozen=True)
 class TablePipelineDependencies:
     metrics: DocumentRunMetrics
@@ -1093,7 +1060,6 @@ class TablePipelineDependencies:
     attach_empty_adjacent_rule_bands_to_tables: Callable[..., dict]
 
 
-#@GPT 页面表格检测阶段只调用检测器并记录预算、跳过原因和耗时；候选构建与Claim最终化仍保持后续独立阶段。
 def detect_page_tables(
     page_context: PageRunContext,
     *,
@@ -1200,7 +1166,6 @@ def detect_page_tables(
     )
 
 
-#@GPT 候选构建把检测对象转换成页面候选字典，集中保留复杂内容、旋转、输出路径与结构审计，不执行Claim仲裁。
 def build_page_table_candidates(
     page_context: PageRunContext,
     *,
@@ -1305,7 +1270,6 @@ def build_page_table_candidates(
                 "table_has_complex_visual_content": (
                     table_has_complex_visual_content
                 ),
-                #@GPT 初始空间簇bbox供后续表格与视觉区域归属判断复用，不以渲染扩张bbox替代。
                 "source_cluster_bbox": fitz.Rect(
                     getattr(table, "source_cluster_bbox", page.rect)
                 ),
@@ -1336,7 +1300,6 @@ def build_page_table_candidates(
     )
 
 
-#@GPT 候选最终化负责结构门、表格容器Claim、相邻规则带附着和展示编号；跨检测器仲裁仍由页面阶段D统一执行。
 def finalize_page_table_candidates(
     page_context: PageRunContext,
     *,

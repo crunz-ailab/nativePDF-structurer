@@ -172,7 +172,6 @@ def initialize_page_context(
     dependencies: PageStageAdapterDependencies,
 ) -> PageInitialization:
     """Load one page's raw objects and build its initial inventory."""
-    #@GPT 适配器只从显式依赖对象读取策略和回调，不读取兼容核心模块全局。
     annotate_inventory_labels = dependencies.annotate_inventory_labels
     build_page_inventory = dependencies.build_page_inventory
     document_run_state = dependencies.document_run_state
@@ -193,7 +192,6 @@ def initialize_page_context(
     page_drawing_seconds = time.perf_counter() - drawing_started
     run_metrics.drawing_extraction_seconds += page_drawing_seconds
 
-    #@GPT 显式保留PDF原始内容流顺序；文字、图片和drawing在此只提取一次，后续检测器共享同一对象身份。
     page_dict = page.get_text("dict", sort=False)
     text_lines = extract_text_lines(page_dict)
     source_images_for_precluster = extract_source_image_blocks(
@@ -259,7 +257,6 @@ def process_page_header_footer(
     dependencies: PageStageAdapterDependencies,
 ) -> PageHeaderFooterResult:
     """Detect, filter, and annotate page-header/footer content."""
-    #@GPT 适配器只从显式依赖对象读取策略和回调，不读取兼容核心模块全局。
     HEADER_FOOTER_BAND_PADDING_POINTS = dependencies.HEADER_FOOTER_BAND_PADDING_POINTS
     HEADER_FOOTER_CANDIDATE_COUNT = dependencies.HEADER_FOOTER_CANDIDATE_COUNT
     HEADER_FOOTER_DETECT_FOOTER = dependencies.HEADER_FOOTER_DETECT_FOOTER
@@ -371,7 +368,6 @@ def prepare_page_geometry(
     dependencies: PageStageAdapterDependencies,
 ) -> PageGeometryPreparation:
     """Build the shared axis index and logical horizontal rules once."""
-    #@GPT 适配器只从显式依赖对象读取策略和回调，不读取兼容核心模块全局。
     FALLBACK_TABLE_MAX_RULE_THICKNESS_POINTS = dependencies.FALLBACK_TABLE_MAX_RULE_THICKNESS_POINTS
     FALLBACK_TABLE_MIN_HORIZONTAL_LENGTH_PAGE_RATIO = dependencies.FALLBACK_TABLE_MIN_HORIZONTAL_LENGTH_PAGE_RATIO
     LOGICAL_HORIZONTAL_RULE_COORDINATE_DECIMAL_PLACES = dependencies.LOGICAL_HORIZONTAL_RULE_COORDINATE_DECIMAL_PLACES
@@ -444,7 +440,6 @@ def prepare_page_rule_bands(
     dependencies: PageStageAdapterDependencies,
 ) -> PageRuleBandPreparation:
     """Route paired horizontal-rule bands before table detection."""
-    #@GPT 适配器只从显式依赖对象读取策略和回调，不读取兼容核心模块全局。
     FALLBACK_TABLE_MIN_VERTICAL_COVERAGE_RATIO = dependencies.FALLBACK_TABLE_MIN_VERTICAL_COVERAGE_RATIO
     FALLBACK_TABLE_RULE_ALIGNMENT_TOLERANCE_POINTS = dependencies.FALLBACK_TABLE_RULE_ALIGNMENT_TOLERANCE_POINTS
     MIN_IMAGE_AREA_POINTS_SQUARED = dependencies.MIN_IMAGE_AREA_POINTS_SQUARED
@@ -550,7 +545,6 @@ def prepare_page_visual_protection(
     dependencies: PageStageAdapterDependencies,
 ) -> PageVisualProtectionPreparation:
     """Build pre-morphology object and table protection rectangles."""
-    #@GPT 适配器只从显式依赖对象读取策略和回调，不读取兼容核心模块全局。
     PRECLASSIFIED_RULE_BAND_VECTOR_CONNECTION_TOLERANCE_POINTS = dependencies.PRECLASSIFIED_RULE_BAND_VECTOR_CONNECTION_TOLERANCE_POINTS
     prepare_precluster_object_exclusions = dependencies.prepare_precluster_object_exclusions
 
@@ -601,7 +595,6 @@ def detect_page_visual_regions(
     dependencies: PageStageAdapterDependencies,
 ) -> PageVisualDetectionResult:
     """Detect ordinary and preclassified visual regions for one page."""
-    #@GPT 适配器只从显式依赖对象读取策略和回调，不读取兼容核心模块全局。
     document_run_state = dependencies.document_run_state
     process_page_visual_regions = dependencies.process_page_visual_regions
     rect_is_mostly_inside_any = dependencies.rect_is_mostly_inside_any
@@ -714,7 +707,6 @@ def propose_page_output_candidates(
     dependencies: PageStageAdapterDependencies,
 ) -> PageOutputCandidateProposal:
     """Create table atoms and table/visual composite proposals."""
-    #@GPT 适配器只从显式依赖对象读取策略和回调，不读取兼容核心模块全局。
     TABLE_IMAGE_DPI = dependencies.TABLE_IMAGE_DPI
     build_table_visual_composite_output_groups = dependencies.build_table_visual_composite_output_groups
     cross_detector_ownership_dependencies = dependencies.cross_detector_ownership_dependencies
@@ -858,7 +850,6 @@ def detect_page_source_images(
     dependencies: PageStageAdapterDependencies,
 ) -> PageSourceImageDetectionResult:
     """Detect copied or rendered source-image candidates for one page."""
-    #@GPT 适配器只从显式依赖对象读取策略和回调，不读取兼容核心模块全局。
     document_run_state = dependencies.document_run_state
     process_page_source_images = dependencies.process_page_source_images
 
@@ -906,7 +897,6 @@ def resolve_page_claims(
     dependencies: PageStageAdapterDependencies,
 ) -> PageClaimResolutionResult:
     """Resolve structural claims and keep only surviving output atoms."""
-    #@GPT 适配器只从显式依赖对象读取策略和回调，不读取兼容核心模块全局。
     apply_claim_resolution_to_outputs = dependencies.apply_claim_resolution_to_outputs
     cross_detector_ownership_dependencies = dependencies.cross_detector_ownership_dependencies
     document_run_state = dependencies.document_run_state
@@ -1027,7 +1017,6 @@ def apply_page_boundary_ownership(
     dependencies: PageStageAdapterDependencies,
 ) -> PageBoundaryOwnershipResult:
     """Apply final structural boundaries and native-text ownership."""
-    #@GPT 适配器只从显式依赖对象读取策略和回调，不读取兼容核心模块全局。
     VISUAL_REGION_TEXT_OWNERSHIP_OVERLAP_RATIO = dependencies.VISUAL_REGION_TEXT_OWNERSHIP_OVERLAP_RATIO
     apply_stage_e_f_to_visual_outputs = dependencies.apply_stage_e_f_to_visual_outputs
     apply_stage_e_to_source_outputs = dependencies.apply_stage_e_to_source_outputs
@@ -1181,7 +1170,6 @@ def process_page_semantics(
     dependencies: PageStageAdapterDependencies,
 ) -> PageSemanticProcessingResult:
     """Run final semantic annotations after structural ownership."""
-    #@GPT 适配器只从显式依赖对象读取策略和回调，不读取兼容核心模块全局。
     ENABLE_FONT_HEADING_INFERENCE = dependencies.ENABLE_FONT_HEADING_INFERENCE
     ENABLE_HEADING_DETECTION = dependencies.ENABLE_HEADING_DETECTION
     ENABLE_PDF_OUTLINE_HEADING_ASSIGNMENT = dependencies.ENABLE_PDF_OUTLINE_HEADING_ASSIGNMENT
@@ -1471,7 +1459,6 @@ def process_page_reading_order(
     dependencies: PageStageAdapterDependencies,
 ) -> PageReadingOrderProcessingResult:
     """Sort page atoms and append the ordered Markdown body."""
-    #@GPT 适配器只从显式依赖对象读取策略和回调，不读取兼容核心模块全局。
     GAPTREE_DEBUG_DPI = dependencies.GAPTREE_DEBUG_DPI
     append_reflowed_text_to_markdown = dependencies.append_reflowed_text_to_markdown
     build_reflowed_page_text = dependencies.build_reflowed_page_text
@@ -1861,7 +1848,6 @@ class DocumentFinalizeDependencies:
     write_visual_region_report: Any
 
 
-#@GPT 文档收尾先集中计算一次摘要统计，避免finalize_document_run同时承担集合筛选、计数器构造和制品写出三类职责。
 def _collect_document_finalize_statistics(
     dependencies: DocumentFinalizeDependencies,
 ) -> dict[str, Any]:
@@ -2016,7 +2002,6 @@ def finalize_document_run(*, dependencies: DocumentFinalizeDependencies) -> Any:
     write_source_image_report = dependencies.write_source_image_report
     write_visual_region_report = dependencies.write_visual_region_report
 
-    #@GPT 原先散落在finalize_document_run中的统计构造已集中到纯收集函数；下方保留局部名称以保证摘要字典逐字段不变。
     finalize_statistics = _collect_document_finalize_statistics(
         dependencies
     )
@@ -2049,11 +2034,9 @@ def finalize_document_run(*, dependencies: DocumentFinalizeDependencies) -> Any:
         "source_pdf": str(run_source_pdf),
         "source_page_count": source_page_count,
         "processed_pages": processed_pages,
-        #@GPT 实验摘要显式记录实际页码，避免processed_pages被误解为连续前N页。
         "processed_page_numbers": [
             page_index + 1 for page_index in page_indices
         ],
-        #@GPT 摘要记录目录驱动页名策略；Markdown显示简短活动标题，逐页JSON保留完整outline_path，不从正文文本猜测页名。
         "markdown_page_naming_policy": {
             "source": "Document.get_toc(simple=False)",
             "toc_entry_count": len(document_toc_entries),
@@ -2068,7 +2051,6 @@ def finalize_document_run(*, dependencies: DocumentFinalizeDependencies) -> Any:
                 "display the first entry as the page name; use the last "
                 "entry as the inherited section for following pages"
             ),
-            #@GPT Markdown页标题不再显示物理页码；页码只保留在逐页JSON的page_number和outline_page_name.target_page中供审计。
             "markdown_format": "## {outline title}",
             "fallback": "## Page N when no outline is available",
             "full_outline_path_storage": (
@@ -2085,10 +2067,8 @@ def finalize_document_run(*, dependencies: DocumentFinalizeDependencies) -> Any:
                 for page_index in page_indices
             ),
         },
-        #@GPT 标题阶段记录文档级正文基准、字号簇和实际输出数量；低频只帮助统计分布，小于正文字号的文本不会成为标题。
         "heading_detection_policy": {
             "enabled": run_enable_heading_detection,
-            #@GPT 字体推断与标题总开关分离；默认关闭时，无目录文档不会仅凭字号创建标题。
             "font_heading_inference_enabled": (
                 run_enable_font_heading_inference
             ),
@@ -2117,7 +2097,6 @@ def finalize_document_run(*, dependencies: DocumentFinalizeDependencies) -> Any:
                 "requires majority-bold text plus a valid chapter "
                 "number; page-number rule labels are excluded"
             ),
-            #@GPT 摘要明确记录页面局部正文与PDF书签的优先关系，避免审计时仍把标题判断误解为单一全局字号阈值。
             "page_local_body_policy": {
                 "minimum_visible_characters": (
                     HEADING_LOCAL_BODY_MIN_VISIBLE_CHARACTERS
@@ -2132,7 +2111,6 @@ def finalize_document_run(*, dependencies: DocumentFinalizeDependencies) -> Any:
                     "max(document body font, highest frequent "
                     "page-local body font cluster)"
                 ),
-                #@GPT 摘要记录页面正文与普通非粗体标题候选之间的最小字号间隔，便于跨文档核查保守门槛是否过严。
                 "minimum_heading_size_delta_points": (
                     HEADING_LOCAL_BODY_MIN_SIZE_DELTA_POINTS
                 ),
@@ -2145,7 +2123,6 @@ def finalize_document_run(*, dependencies: DocumentFinalizeDependencies) -> Any:
                         document_run_state.outline_heading_index.values()
                     )
                 ),
-                #@GPT PDF目录同文匹配是独立强证据，并在可选字体推断之前执行。
                 "assignment": (
                     "strict normalized text match on the current target "
                     "page; duplicate matches are resolved by outline "
@@ -2179,7 +2156,6 @@ def finalize_document_run(*, dependencies: DocumentFinalizeDependencies) -> Any:
             "profile": document_run_state.typography_profile,
             "audit_output": "heading_detection_report.md",
         },
-        #@GPT 图题是独立语义角色而非章节标题；记录结构、邻接与唯一归属条件，避免把策略误解为单纯“靠近图片”。
         "figure_caption_policy": {
             "enabled": True,
             "stage": (
@@ -2202,9 +2178,7 @@ def finalize_document_run(*, dependencies: DocumentFinalizeDependencies) -> Any:
             ),
             "audit_output": "figure_caption_detection_report.md",
         },
-        #@GPT 摘要记录表格截图的当前单元格数量判据，便于审计输出来源。
         "threshold_rule": "row_count * column_count > 6",
-        #@GPT 摘要记录纯文本表格开关及复杂内容保护规则，便于确认复杂小表格不会被强制转成Markdown。
         "pure_text_table_mode": {
             "force_pure_text_table_to_markdown": (
                 run_force_pure_text_table_to_markdown
@@ -2216,7 +2190,6 @@ def finalize_document_run(*, dependencies: DocumentFinalizeDependencies) -> Any:
                 "math-font text line overlaps table",
             ],
         },
-        #@GPT 记录纯文字水平分隔带策略：仅在非文本候选已归属后，对同跨度相邻横线之间的原生文字输出Markdown `---`；出现图片、表格、公式或实质矢量时跳过，不截图。
         "text_separator_policy": {
             "enabled": True,
             "source": "unclaimed same-span adjacent horizontal rules",
@@ -2231,7 +2204,6 @@ def finalize_document_run(*, dependencies: DocumentFinalizeDependencies) -> Any:
                 "substantive non-rule vector overlaps the band",
             ],
         },
-        #@GPT 摘要记录逻辑横线恢复的准确执行位置与边界：先恢复PDF拆段，再分别交给表格预分类和视觉检测；不改变原始drawing清单。
         "logical_horizontal_rule_premerge_policy": {
             "enabled": True,
             "stage": "before table and visual detection",
@@ -2240,12 +2212,10 @@ def finalize_document_run(*, dependencies: DocumentFinalizeDependencies) -> Any:
                 "all horizontal and vertical logical rules for table skeletons",
                 "long horizontal rules for rule-band and visual routing",
             ],
-            #@GPT 逻辑横线恢复按规范化坐标分桶，不使用表格连接阶段的1pt容差。
             "same_y_grouping": (
                 "standardized Y coordinate bucket; no table "
                 "connection tolerance"
             ),
-            #@GPT 同一精度同时规范化Y位置和X端点，消除PDF浮点噪声。
             "coordinate_decimal_places": (
                 LOGICAL_HORIZONTAL_RULE_COORDINATE_DECIMAL_PLACES
             ),
@@ -2264,7 +2234,6 @@ def finalize_document_run(*, dependencies: DocumentFinalizeDependencies) -> Any:
                 "was already assigned to a table skeleton or "
                 "preclassified rule band"
             ),
-            #@GPT 摘要直接给出本次审计文件与记录范围，避免看到0条时误以为逻辑横线功能未执行；报告只收录两个以上片段的真实合并。
             "audit_output": {
                 "json": "logical_horizontal_rules.json",
                 "markdown": "logical_horizontal_rules_report.md",
@@ -2276,14 +2245,12 @@ def finalize_document_run(*, dependencies: DocumentFinalizeDependencies) -> Any:
                 ),
             },
         },
-        #@GPT 表格检测前结构分流策略：双水平规则带先判定为纯文字分隔或复合视觉带，只有剩余drawing才送入page.find_tables()。
         "preclassified_rule_band_policy": {
             "enabled": True,
             "stage": "before page.find_tables()",
             "minimum_horizontal_rule_x_overlap_ratio": (
                 PRECLASSIFIED_RULE_BAND_MIN_X_OVERLAP_RATIO
             ),
-            #@GPT 摘要记录两类结构反证：重复同Y横线对和具有覆盖率的竖向连接线。
             "table_structure_rejection": {
                 "repeated_horizontal_pair": (
                     "same top/bottom Y positions repeated in another X span"
@@ -2303,7 +2270,6 @@ def finalize_document_run(*, dependencies: DocumentFinalizeDependencies) -> Any:
             "image_or_complex_vector_output": (
                 "single visual-region PNG with native text channel"
             ),
-            #@GPT 后置归并策略：无独立语义内容的纯色规则带若紧贴截图表格边缘且X投影达到既有门限，则只扩张表格render_bbox并抑制独立规则带PNG。
             "adjacent_empty_band_table_attachment": {
                 "enabled": True,
                 "empty_definition": (
@@ -2328,10 +2294,8 @@ def finalize_document_run(*, dependencies: DocumentFinalizeDependencies) -> Any:
                 "a regular multi-row or multi-column grid is present",
             ],
         },
-        #@GPT 摘要记录规则线补检策略与最终来源计数，便于判断是否产生额外表格候选。
         "table_detection_policy": {
             "native_detector": "page.find_tables()",
-            #@GPT 摘要改为记录簇级检测预算，避免把“页面总drawing门限”误写成当前算法。
             "cluster_table_gate": {
                 "drawing_budget_per_cluster": CLUSTER_TABLE_DRAWING_BUDGET,
                 "precluster_close_gap_points": CLUSTER_TABLE_CLOSE_GAP_POINTS,
@@ -2355,7 +2319,6 @@ def finalize_document_run(*, dependencies: DocumentFinalizeDependencies) -> Any:
                     for item in tables_output
                 )
             ),
-            #@GPT 摘要说明新的执行顺序：区域overlap用于闭运算前摘除独立对象，原有双向overlap仲裁仍在聚类后兜底。
             "precluster_object_overlap": {
                 "enabled": True,
                 "stage": "after table detection and before visual morphology",
@@ -2374,16 +2337,12 @@ def finalize_document_run(*, dependencies: DocumentFinalizeDependencies) -> Any:
             },
         },
         "table_image_dpi": TABLE_IMAGE_DPI,
-        #@GPT 输出目录在运行前重命名为时间戳备份，避免残留文件污染且保留可恢复产物。
         "output_policy": (
             "existing output directory is renamed to a timestamped "
             "backup before each run"
         ),
-        #@GPT 摘要记录确定性的页眉/页尾独立规则；文字明确不参与硬匹配，命中后也只过滤drawing。
         "header_footer_policy": {
-            #@GPT 页尾检测开关独立记录；页眉模板未启用不会关闭页尾模板。
             "detect_footer": HEADER_FOOTER_DETECT_FOOTER,
-            #@GPT 页眉文字回写由独立开关控制，默认关闭以保持最简Markdown输出。
             "keep_header_text_in_markdown": (
                 run_keep_header_text
             ),
@@ -2399,12 +2358,10 @@ def finalize_document_run(*, dependencies: DocumentFinalizeDependencies) -> Any:
             "candidate_count_per_edge": (
                 HEADER_FOOTER_CANDIDATE_COUNT
             ),
-            #@GPT 页眉/页尾使用独立候选带；页尾8%是整个drawing bbox必须满足的硬门槛，而不是只检查下边缘。
             "candidate_edge_page_ratio_by_edge": (
                 HEADER_FOOTER_EDGE_PAGE_RATIO_BY_EDGE
             ),
             "footer_bbox_must_be_fully_inside_candidate_band": True,
-            #@GPT 页眉与页尾分别记录最小对象数和样本支持率。
             "minimum_matched_objects_by_edge": (
                 HEADER_FOOTER_MIN_MATCHED_OBJECTS_BY_EDGE
             ),
@@ -2421,7 +2378,6 @@ def finalize_document_run(*, dependencies: DocumentFinalizeDependencies) -> Any:
                 "enabled for duplicate header output"
             ),
             "text_content_used_for_matching": False,
-            #@GPT 页尾复合候选只在底部候选带内聚合同基线、水平间距不超过既有2pt位置容差且高度一致的drawing；摘要显式记录该局部约束。
             "footer_composite_drawing_policy": {
                 "enabled": True,
                 "candidate_band_only": True,
@@ -2440,7 +2396,6 @@ def finalize_document_run(*, dependencies: DocumentFinalizeDependencies) -> Any:
             "hard_conditions": [
                 "same object type",
                 "height difference <= 1pt",
-                #@GPT 页眉比较绝对x0；页尾比较距最近外侧页边的距离和对象宽度，以支持奇偶页镜像。
                 "header absolute x0 difference <= 2pt; footer outer-edge distance and width difference <= 2pt",
                 "edge offset difference <= 3pt",
                 "identical normalized image/vector content digest",
@@ -2489,7 +2444,6 @@ def finalize_document_run(*, dependencies: DocumentFinalizeDependencies) -> Any:
                 "do not duplicate an image whose center is inside a "
                 "rendered coarse visual region"
             ),
-            #@GPT 图片过滤使用绝对pt几何判据，不随页面尺寸改变。
             "filter_rule": (
                 "(minor_side < 12pt and aspect_ratio > 5) or "
                 "bbox_area < 160pt^2"
@@ -2501,7 +2455,6 @@ def finalize_document_run(*, dependencies: DocumentFinalizeDependencies) -> Any:
             ),
             "overlay_intersection_ratio": OVERLAY_INTERSECTION_RATIO,
             "composite_image_dpi": COMPOSITE_IMAGE_DPI,
-            #@GPT 原图报告记录双bbox语义：完整区域渲染，顶部窄条排序。
             "bbox_policy": {
                 "render_bbox": "full copied or composite image region",
                 "sort_bbox": "top anchor strip only",
@@ -2510,9 +2463,7 @@ def finalize_document_run(*, dependencies: DocumentFinalizeDependencies) -> Any:
             "mode_counts": dict(source_image_mode_counts),
             "reason_counts": dict(source_image_reason_counts),
         },
-        #@GPT 摘要记录视觉区域算法和全部页面比例参数，不包含页码或固定坐标特判。
         "visual_region_policy": {
-            #@GPT 执行顺序为：排除表格/背景，分类水平分隔线，闭运算与连通域，空间合并，单次附着文字和图片。
             "method": (
                 "exclude tables/background, remove high-confidence filled "
                 "horizontal bars and unmarked single horizontal strokes "
@@ -2537,10 +2488,7 @@ def finalize_document_run(*, dependencies: DocumentFinalizeDependencies) -> Any:
             "horizontal_merge_page_ratio": (
                 VISUAL_REGION_HORIZONTAL_MERGE_PAGE_RATIO
             ),
-            #@GPT 显式写出闭运算前的新分类规则与端点索引参数，便于后续调参和回归。
             "pre_morphology_separator_filter": {
-                #@GPT 细水平填充条只有在缺少端点标记时才作为分隔线排除。
-                #@GPT 细实心矩形可能是箭杆；仅当端点邻域没有紧凑矢量标记时，才在闭运算前作为分隔条过滤。
                 "filled_horizontal_bar_rule": (
                     "single filled rectangle with height < 12pt and "
                     "width/height > 5 is removed unless an endpoint "
@@ -2565,13 +2513,11 @@ def finalize_document_run(*, dependencies: DocumentFinalizeDependencies) -> Any:
                     MAX_HORIZONTAL_LINE_SLOPE_RATIO
                 ),
             },
-            #@GPT 小组件门限在空间聚合前执行，防止无信息细条参与后续闭运算和区域合并。
             "pre_merge_component_filter_enabled": True,
             "pre_merge_component_filter_rule": (
                 "(minor_side < 12pt and aspect_ratio > 5) or "
                 "bbox_area < 160pt^2"
             ),
-            #@GPT 摘要记录新增的一次性纯矢量同层聚合，明确其使用已聚合bbox且不会递归重复执行。
             "pure_vector_same_layer_merge": {
                 "enabled": True,
                 "passes": 1,
@@ -2581,10 +2527,8 @@ def finalize_document_run(*, dependencies: DocumentFinalizeDependencies) -> Any:
                 "horizontal_gap_page_ratio": (
                     VISUAL_REGION_SAME_LAYER_HORIZONTAL_GAP_PAGE_RATIO
                 ),
-                #@GPT 同层合并只使用投影重叠和页面比例间距，不引入drawing数量条件。
                 "uses_post_merge_bbox_recursively": False,
             },
-            #@GPT 新版不扩大距离门限：只让明确跨过左右簇的水平线或同一组相邻水平框线建立合并关系，垂直线不参与。
             "horizontal_relation_merge": {
                 "enabled": True,
                 "horizontal_connector": (
@@ -2600,14 +2544,12 @@ def finalize_document_run(*, dependencies: DocumentFinalizeDependencies) -> Any:
             },
             "post_merge_filter_enabled": False,
             "post_attachment_distance_merge_enabled": False,
-            #@GPT 附着后不运行全局距离递归合并，但允许共享同一原始图片对象的区域做身份合并。
             "shared_source_image_merge_enabled": True,
             "shared_source_image_merge_rule": (
                 "merge whenever two visual regions reference at least "
                 "one identical source image block; no Y or distance "
                 "threshold is applied"
             ),
-            #@GPT 截图扩张使用矢量簇与已关联原始图片的联合bbox；端点邻近候选统一覆盖水平、垂直和倾斜引线。
             "crop_text_bbox_policy": {
                 "enabled": True,
                 "association_geometry": (
@@ -2621,7 +2563,6 @@ def finalize_document_run(*, dependencies: DocumentFinalizeDependencies) -> Any:
                 "maximum_gap_multiplier": (
                     VISUAL_REGION_CROP_TEXT_MAX_GAP_MULTIPLIER
                 ),
-                #@GPT Liang-Barsky只判断真实相交；跨越视觉区域相对边的轴对齐结构线不参与外部文字附着。
                 "endpoint_text_promotion": (
                     "after Liang-Barsky intersection, classify vector "
                     "segments by geometry: axis-aligned segments bridging "
@@ -2633,7 +2574,6 @@ def finalize_document_run(*, dependencies: DocumentFinalizeDependencies) -> Any:
                 "affects_global_text_deduplication": "conditional",
             },
             "render_dpi": VISUAL_REGION_DPI,
-            #@GPT 视觉区域仅在原生文字已被同一Markdown原子接管时使用顶部锚点，否则保留完整排序框约束仍在全局流中的图外文字。
             "bbox_policy": {
                 "render_bbox": "full visual crop",
                 "sort_bbox_with_owned_text": "top anchor strip",
@@ -2641,9 +2581,7 @@ def finalize_document_run(*, dependencies: DocumentFinalizeDependencies) -> Any:
                 "sort_bbox_height_points": SORT_BBOX_TOP_HEIGHT_POINTS,
             },
         },
-        #@GPT 公式策略明确以页面图像保真为目标，字体/符号只用于定位，不把不可靠的PDF字符串当作可还原LaTeX。
         "formula_render_policy": {
-            #@GPT 汇总当前总开关状态，避免default_enabled字段掩盖本次实际是否运行公式流程。
             "enabled": run_enable_formula_detection,
             # "default_enabled": True,
             "default_enabled": run_enable_formula_detection,
@@ -2654,7 +2592,6 @@ def finalize_document_run(*, dependencies: DocumentFinalizeDependencies) -> Any:
             ),
             "ocr": False,
             "latex_reconstruction": False,
-            #@GPT 关闭公式时在汇总中明确标记为disabled，避免审计人员误以为本页执行了字体判断。
             "detection": (
                 "PDF native font/symbol structure, same-column vertical "
                 "clustering, and equation-number anchors"
@@ -2682,7 +2619,6 @@ def finalize_document_run(*, dependencies: DocumentFinalizeDependencies) -> Any:
                 "map each group into virtual upright coordinates; then "
                 "sort with the configured spatial backend"
             ),
-            #@GPT GapTree读取sort_bbox，渲染读取render_bbox；文字元素未提供sort_bbox时使用其原始bbox。
             "non_text_bbox_policy": (
                 "render with render_bbox; sort with sort_bbox; "
                 "text falls back to its original bbox"
@@ -2691,7 +2627,6 @@ def finalize_document_run(*, dependencies: DocumentFinalizeDependencies) -> Any:
                 "exclude text lines whose centers are inside "
                 "embedded large-table bounding boxes"
             ),
-            #@GPT 视觉文字使用单一归属、双通道输出和精确行去重；端点附着规则适用于任意方向的引线。
             "visual_region_text_policy": (
                 "merge vector/framework/source-image structure first; "
                 "assign native PDF text once against the final content "
@@ -2707,10 +2642,8 @@ def finalize_document_run(*, dependencies: DocumentFinalizeDependencies) -> Any:
                 "the exact native text line boxes assigned to each formula"
             ),
         },
-        #@GPT 汇总明确区分阶段D候选过滤和阶段E边界重建，避免看到applied_to_outputs后误以为完整A-G流程已接管。
         "claim_resolution_policy": {
             "candidate_survival_applied": True,
-            #@GPT 阶段E/F依据获胜结构图元和文字归属重建视觉区域边界。
             "render_bbox_rebuilt_from_owned_elements": True,
             "owned_feature_bbox_preview": True,
             "stage_f_text_ownership_preview": True,
@@ -2720,7 +2653,6 @@ def finalize_document_run(*, dependencies: DocumentFinalizeDependencies) -> Any:
                 record["suppressed_output_count"]
                 for record in claim_resolution_actions_output
             ),
-            #@GPT 组合层统计与图元唯一owner分开：member table/visual仍拥有自己的图元，只抑制独立制品并扩入renderer PNG。
             "composite_output_groups": {
                 "overlap_threshold": (
                     TABLE_VISUAL_OWNERSHIP_OVERLAP_RATIO
@@ -2737,7 +2669,6 @@ def finalize_document_run(*, dependencies: DocumentFinalizeDependencies) -> Any:
                     for group in composite_output_groups_output
                 ),
                 "element_ownership_changed": False,
-                #@GPT renderer截图并入活跃成员表格和视觉区域，排序框仍锚定renderer自身拥有的特征。
                 "renderer_bbox_policy": (
                     "union renderer-owned content with active member table "
                     "and member visual bboxes; keep sort bbox on "
@@ -2778,7 +2709,6 @@ def finalize_document_run(*, dependencies: DocumentFinalizeDependencies) -> Any:
                 run_metrics.formula_processing_seconds,
                 6,
             ),
-            #@GPT 标题一次性轻量画像与逐页分类分开统计，便于评估结构化Markdown的性能成本。
             "heading_profile_total": round(
                 run_metrics.heading_profile_seconds,
                 6,
@@ -2787,7 +2717,6 @@ def finalize_document_run(*, dependencies: DocumentFinalizeDependencies) -> Any:
                 run_metrics.heading_detection_seconds,
                 6,
             ),
-            #@GPT 汇总纯文字分隔带检测耗时和最终输出数量，便于和视觉/表格阶段对比性能。
             "text_separator_detection_total": round(
                 run_metrics.text_separator_detection_seconds,
                 6,
@@ -2795,7 +2724,6 @@ def finalize_document_run(*, dependencies: DocumentFinalizeDependencies) -> Any:
             "text_separator_output_count": (
                 run_metrics.text_separator_output_count
             ),
-            #@GPT 汇总表格检测前双水平规则带分流耗时和输出数量，避免把直接视觉渲染误计入page.find_tables()。
             "preclassified_rule_band_detection_total": round(
                 run_metrics.preclassified_rule_band_detection_seconds,
                 6,
@@ -2803,17 +2731,14 @@ def finalize_document_run(*, dependencies: DocumentFinalizeDependencies) -> Any:
             "preclassified_rule_band_output_count": (
                 run_metrics.preclassified_rule_band_output_count
             ),
-            #@GPT 汇总表格/视觉检测前的同Y水平片段恢复耗时和逻辑规则线数量，方便与15%过滤前后对照。
             "logical_horizontal_rule_premerge_total": round(
                 run_metrics.logical_horizontal_rule_seconds_total,
                 6,
             ),
-            #@GPT 该字段只统计最终Claim路由审计，不包含逻辑横线构建；两者分开后可以直接判断优化是否影响算法或仅影响报告。
             "logical_horizontal_rule_audit_finalize_total": round(
                 run_metrics.logical_horizontal_rule_audit_finalize_seconds_total,
                 6,
             ),
-            #@GPT 汇总一次性轴向索引耗时；该阶段同时提供横/竖逻辑线和drawing局部分类缓存。
             "axis_geometry_index_total": round(
                 run_metrics.axis_geometry_index_seconds_total,
                 6,
@@ -2826,7 +2751,6 @@ def finalize_document_run(*, dependencies: DocumentFinalizeDependencies) -> Any:
                 run_metrics.header_footer_page_detection_seconds,
                 6,
             ),
-            #@GPT 阶段A+B耗时；当前只做登记和标签，应远小于矢量提取和视觉聚类。
             "inventory_build_total": round(
                 run_metrics.inventory_build_seconds,
                 6,
@@ -2836,11 +2760,8 @@ def finalize_document_run(*, dependencies: DocumentFinalizeDependencies) -> Any:
     }
     parse_result.summary = summary
 
-    #@GPT ArtifactEmitter从ParseResult写出Markdown，统一执行文件名、分隔符、尾换行和UTF-8编码契约。
-    #@GPT Markdown 已由 ParseResult 统一持有；改用结果对象入口，避免 main() 继续了解结果内部字段，同时复用相同的底层字节序列化规则。
     artifact_emitter.write_parse_result_markdown(parse_result)
 
-    #@GPT 工程化最简模式在Markdown及其引用资源写完后结束；下方JSON、审计Markdown和冲突报告只服务调试/VLM接力，不属于基础RAG制品。
     if not run_debug_output:
         print(
             json.dumps(
@@ -2850,29 +2771,23 @@ def finalize_document_run(*, dependencies: DocumentFinalizeDependencies) -> Any:
             )
         )
         # return
-        #@GPT 最简模式仍在调试制品阶段前结束，但现在把已完成的结果对象交还调用方；不额外构建 IR 或写 JSON。
         return parse_result
 
-    #@GPT 机器可读调试JSON由ArtifactEmitter在报告和IR准备完成后统一写出。
-    #@GPT 生成按图片文件名索引的精简清单，便于人工查看；完整JSON保留机器可读审计字段。
     write_source_image_report(
         path=run_output_dir / "source_images_report.md",
         records=source_images_output,
     )
 
-    #@GPT 输出按图片文件名组织的视觉区域人工可读清单。
     write_visual_region_report(
         path=run_output_dir / "visual_regions_report.md",
         records=visual_regions_output,
     )
 
-    #@GPT 公式报告保存可点击PNG清单，不复制span和font等内部中间字段。
     write_formula_region_report(
         path=run_output_dir / "formula_regions_report.md",
         records=formula_regions_output,
     )
 
-    #@GPT 标题识别输出独立的人工可读报告，便于核查字体、目录和排除区域证据。
     write_heading_detection_report(
         path=run_output_dir / "heading_detection_report.md",
         typography_profile=document_run_state.typography_profile,
@@ -2884,13 +2799,11 @@ def finalize_document_run(*, dependencies: DocumentFinalizeDependencies) -> Any:
         enable_font_heading_inference=run_enable_font_heading_inference,
     )
 
-    #@GPT 图题另写精简人工报告；它与标题报告并列，便于核查图题为何归属于某个视觉区域以及是否存在跨栏误绑定。
     write_figure_caption_report(
         path=run_output_dir / "figure_caption_detection_report.md",
         records=figure_caption_records_output,
     )
 
-    #@GPT 页眉/页尾输出只保存精简模板和逐页匹配结果，文字内容、原始路径指令等不必要杂项不写入报告。
     header_footer_output = {
         "templates": serialize_header_footer_templates(
             document_run_state.header_footer_templates
@@ -2905,13 +2818,11 @@ def finalize_document_run(*, dependencies: DocumentFinalizeDependencies) -> Any:
         keep_header_text_in_markdown=run_keep_header_text,
     )
 
-    #@GPT 在完整JSON之外生成节点顺序精简报告，直接关联每页调试图。
     write_gaptree_report(
         path=run_output_dir / "gaptree_reading_order_report.md",
         pages=pages_output,
     )
 
-    #@GPT 水平规则报告只包含源ID、几何、路由与最终owner，不复制drawing原始字典。
     write_logical_horizontal_rule_report(
         path=(
             run_output_dir / "logical_horizontal_rules_report.md"
@@ -2919,13 +2830,11 @@ def finalize_document_run(*, dependencies: DocumentFinalizeDependencies) -> Any:
         records=logical_horizontal_rule_audit_output,
     )
 
-    #@GPT 冲突报告与机器JSON共同记录候选存活、边界和淘汰原因。
     write_claim_conflict_report(
         path=run_output_dir / "claim_conflicts_report.md",
         page_resolutions=claim_resolution_output,
     )
 
-    #@GPT 工程化IR只从已完成的页面摘要和Claim记录构建稳定中间表示；不重新扫描PDF，也不把检测器内部临时字段暴露给下游。
     from nativePDF_structurer.ir import build_document_ir
 
     document_ir = build_document_ir(
@@ -2941,7 +2850,6 @@ def finalize_document_run(*, dependencies: DocumentFinalizeDependencies) -> Any:
         detector_claims=detector_claims_output,
     )
     parse_result.document_ir = document_ir
-    #@GPT 所有机器可读调试 JSON 现在由 ArtifactEmitter 从 ParseResult 一次写出；人工报告与 IR 组装仍留在各自子系统，避免输出层介入解析算法。
     artifact_emitter.write_parse_result_debug_json(
         parse_result,
         header_footer_detection=header_footer_output,
@@ -2954,9 +2862,7 @@ def finalize_document_run(*, dependencies: DocumentFinalizeDependencies) -> Any:
             indent=2,
         )
     )
-    #@GPT 调试模式完成 IR、JSON 与人工报告写出后返回同一结果对象，保证文件内容和内存记录来自单一数据源。
     return parse_result
-#@GPT 下方导入用于组装默认运行策略和各主题模块的公开执行入口。
 from functools import partial
 import os
 import re
@@ -2981,11 +2887,9 @@ from nativePDF_structurer.figure_captions import classify_figure_caption_roles
 from nativePDF_structurer.heading_detection import annotate_heading_levels, build_document_typography_profile
 from nativePDF_structurer.visual_assets import MIN_IMAGE_AREA_POINTS_SQUARED, MIN_IMAGE_LINE_ASPECT_RATIO, MIN_IMAGE_THIN_SIDE_POINTS, MAX_HORIZONTAL_LINE_SLOPE_RATIO, VISUAL_REGION_CROP_TEXT_OVERLAP_RATIO, VISUAL_REGION_CROP_TEXT_MAX_GAP_MULTIPLIER, VISUAL_REGION_TEXT_OWNERSHIP_OVERLAP_RATIO, VISUAL_MASK_CLOSE_GAP_PAGE_RATIO, VISUAL_MASK_PIXELS_PER_POINT, extract_source_image_blocks, image_content_signature, image_is_large_enough, SORT_BBOX_TOP_HEIGHT_POINTS
 from nativePDF_structurer.visual_assets import VISUAL_REGION_HORIZONTAL_MERGE_PAGE_RATIO, VISUAL_REGION_SAME_LAYER_HORIZONTAL_GAP_PAGE_RATIO, VISUAL_REGION_SAME_LAYER_VERTICAL_OVERLAP_RATIO, VISUAL_REGION_VERTICAL_MERGE_PAGE_RATIO
-#@GPT 表格主流程按检测、结构和输出三个主题入口组织。
 from nativePDF_structurer.table_detection import TablePipelineDependencies, TablePreclusterDependencies, build_page_table_candidates, detect_page_tables, finalize_page_table_candidates
 from nativePDF_structurer.table_structure import TableStructureDependencies, unique_rule_positions
 from nativePDF_structurer.cross_detector_ownership import CrossDetectorOwnershipDependencies, build_table_visual_composite_output_groups, finalize_table_visual_composite_output_groups, resolve_table_visual_candidate_ownership, restore_inactive_composite_table_outputs
-#@GPT unique_rule_positions以table_structure为唯一来源，避免布局模块和表格模块维护两份位置聚合语义。
 from nativePDF_structurer.layout_geometry import attach_empty_adjacent_rule_bands_to_tables, build_pdf_outline_heading_index, build_pdf_outline_page_name_index, detect_text_separator_markdown_elements, drawing_axis_rule, drawing_content_signature, drawing_is_stroked_preclassified_horizontal_rule, extract_text_lines, finalize_logical_horizontal_rule_audit, format_markdown_pdf_page_title, group_horizontal_rules_by_span, horizontal_pair_has_boundary_grid_evidence, horizontal_pair_repeats_in_another_span, line_is_inside_any_table, line_matches_running_header_layout, meaningful_overlap, merge_collinear_vertical_rules, prepare_precluster_object_exclusions, rect_is_mostly_inside_any, rule_element_ids, vertical_rule_connects_horizontal_pair
 from nativePDF_structurer.visual_processing import annotate_inventory_labels, apply_stage_e_f_to_visual_outputs, apply_stage_e_to_source_outputs, drawing_is_filled_horizontal_bar, drawing_is_long_horizontal_single_line, process_page_source_images, process_page_visual_regions, render_preclassified_rule_band_visuals
 from nativePDF_structurer.page_finalize import finalize_page_context
@@ -3300,26 +3204,21 @@ def main(context: ParseRunContext | None = None) -> ParseResult:
     以及调试模式下构建的结构化IR。
     """
     if context is not None:
-        #@GPT 公共调用通过不可变上下文注入配置；context=None时使用环境变量和模块默认值。
         _apply_parse_run_context(context)
-    #@GPT 页面循环只在入口读取一次运行设置，后续页面、报告和IR均使用局部快照。
     run_source_pdf = SOURCE_PDF
     run_output_dir = OUTPUT_DIR
     run_page_numbers = TEST_PAGE_NUMBERS
-    #@GPT 运行开关与路径一样只在入口读取一次；这样页面循环和摘要不会把兼容全局当作隐式输入。
     run_debug_output = DEBUG_OUTPUT
     run_enable_heading_detection = ENABLE_HEADING_DETECTION
     run_enable_font_heading_inference = ENABLE_FONT_HEADING_INFERENCE
     run_keep_header_text = KEEP_HEADER_TEXT_IN_MARKDOWN
     run_enable_formula_detection = ENABLE_FORMULA_DETECTION
-    #@GPT 文档级标题和表格策略同样只在入口读取一次，避免页面处理中出现隐式配置变化。
     run_enable_pdf_outline_heading_assignment = (
         ENABLE_PDF_OUTLINE_HEADING_ASSIGNMENT
     )
     run_force_pure_text_table_to_markdown = (
         FORCE_PURE_TEXT_TABLE_TO_MARKDOWN
     )
-    #@GPT 输出布局集中创建必需目录，并根据公式和调试开关按需创建可选目录。
     from nativePDF_structurer.artifacts import prepare_output_layout
     from nativePDF_structurer.emitter import ArtifactEmitter
 
@@ -3329,12 +3228,10 @@ def main(context: ParseRunContext | None = None) -> ParseResult:
         formula_enabled=run_enable_formula_detection,
         debug_enabled=run_debug_output,
     )
-    #@GPT 页面阶段通过DocumentRunState.output_layout读取目录，确保输出位置只有一个运行期来源。
     artifact_emitter = ArtifactEmitter(output_layout)
 
     started = time.perf_counter()
 
-    #@GPT ParseResult是Markdown、IR输入和provenance集合的权威文档级容器。
     parse_result = ParseResult()
     pages_output = parse_result.pages
     tables_output = parse_result.tables
@@ -3356,14 +3253,11 @@ def main(context: ParseRunContext | None = None) -> ParseResult:
         parse_result.composite_output_groups
     )
 
-    #@GPT 所有文档级累计指标由一个metrics对象持有，页面阶段和最终summary读写同一实例。
     run_metrics = DocumentRunMetrics()
     document = fitz.open(run_source_pdf)
 
     source_page_count = document.page_count
-    #@GPT PDF书签只读取一次并同时服务正文标题几何匹配与Markdown页名；避免大文档为了两个用途重复解析目录树。
     document_toc_entries = document.get_toc(simple=False)
-    #@GPT 标题索引复用已读取的TOC缓存，避免为页面命名和标题匹配重复解析目录树。
     document_outline_heading_index = (
         build_pdf_outline_heading_index(
             document,
@@ -3375,16 +3269,13 @@ def main(context: ParseRunContext | None = None) -> ParseResult:
         )
         else {}
     )
-    #@GPT 页面命名不受标题识别开关控制；即使关闭正文H1/H2推断，PDF自带目录仍应替换Markdown中的Page X。
     document_outline_page_name_index = (
         build_pdf_outline_page_name_index(
             page_count=source_page_count,
             toc_entries=document_toc_entries,
         )
     )
-    #@GPT 文档内共享页面矢量缓存；页眉样本页和后续正文页若重合，也不会再次调用page.get_drawings()。
     drawings_cache: dict[int, list[dict]] = {}
-    #@GPT 在任何表格、矢量、图片过滤前先使用第2至20页建立图片/矢量模板；文字内容不进入该阶段。
     header_footer_template_started = time.perf_counter()
     header_footer_templates = build_header_footer_templates(
         document=document,
@@ -3412,7 +3303,6 @@ def main(context: ParseRunContext | None = None) -> ParseResult:
     run_metrics.header_footer_template_seconds = (
         time.perf_counter() - header_footer_template_started
     )
-    #@GPT 页面选择使用已规范化的一基页码集合，并忽略超出文档范围的页码。
     page_indices = [
         page_number - 1
         for page_number in run_page_numbers
@@ -3420,9 +3310,7 @@ def main(context: ParseRunContext | None = None) -> ParseResult:
     ]
     processed_pages = len(page_indices)
 
-    #@GPT 字体推断启用时扫描整份文档文字层，避免抽样页面的局部版式主导全局正文基准。
     heading_profile_started = time.perf_counter()
-    #@GPT 字体画像只在显式开启字体推断时构建；目录同文匹配复用逐页已有text_lines。
     if (
         run_enable_heading_detection
         and run_enable_font_heading_inference
@@ -3496,7 +3384,6 @@ def main(context: ParseRunContext | None = None) -> ParseResult:
         time.perf_counter() - heading_profile_started
     )
 
-    #@GPT 文档级缓存、索引和输出目录在进入页面循环前冻结到DocumentRunState；页面处理不再从main()自由变量拼装运行环境。
     document_run_state = DocumentRunState(
         document=document,
         output_layout=output_layout,
@@ -3510,7 +3397,6 @@ def main(context: ParseRunContext | None = None) -> ParseResult:
         metrics=run_metrics,
     )
 
-    #@GPT 页面级表格策略和回调在进入页面循环前冻结为显式依赖，不捕获main()中的临时状态。
     table_pipeline_dependencies = TablePipelineDependencies(
         metrics=run_metrics,
         tables_dir=output_layout.tables,
@@ -3583,7 +3469,6 @@ def main(context: ParseRunContext | None = None) -> ParseResult:
         ),
     )
 
-    #@GPT 跨检测器模块只保存阈值和表格恢复回调；页面候选、Claim及输出列表仍由PageRunContext持有，避免模块形成第二套状态容器。
     cross_detector_ownership_dependencies = (
         CrossDetectorOwnershipDependencies(
             ownership_overlap_threshold=(
@@ -3603,7 +3488,6 @@ def main(context: ParseRunContext | None = None) -> ParseResult:
         )
     )
 
-    #@GPT 十二个页面阶段适配器共享一份显式依赖快照；构造一次后通过partial绑定，页面循环不再捕获main局部变量。
     page_stage_adapter_dependencies = PageStageAdapterDependencies(
         ENABLE_FONT_HEADING_INFERENCE=ENABLE_FONT_HEADING_INFERENCE,
         ENABLE_HEADING_DETECTION=ENABLE_HEADING_DETECTION,
@@ -3706,8 +3590,6 @@ def main(context: ParseRunContext | None = None) -> ParseResult:
         vertical_rule_connects_horizontal_pair=vertical_rule_connects_horizontal_pair,
     )
 
-    #@GPT 单页阶段通过显式依赖统一绑定；pipeline只定义执行顺序，各检测器读取自己的策略对象。
-    #@GPT 单页编排依赖在所有阶段回调定义后冻结；pipeline只决定阶段顺序，各检测器继续读取自己的显式依赖对象。
     pipeline_page_dependencies = PagePipelineDependencies(
         document_run_state=document_run_state,
         table_pipeline_dependencies=table_pipeline_dependencies,
@@ -3772,7 +3654,6 @@ def main(context: ParseRunContext | None = None) -> ParseResult:
         ),
     )
 
-    #@GPT 文档编排按配置页序处理并提交每个完成态页面，最后统一关闭PDF文档。
     process_document_pages(
         dependencies=DocumentPipelineDependencies(
             document_run_state=document_run_state,
@@ -3784,7 +3665,6 @@ def main(context: ParseRunContext | None = None) -> ParseResult:
         )
     )
 
-    #@GPT 文档完成态统一交给pipeline；摘要、报告、IR和debug JSON只从已提交的ParseResult与运行指标生成一次。
     return finalize_document_run(
         dependencies=DocumentFinalizeDependencies(
             CLAIM_DETECTOR_PRIORITY=CLAIM_DETECTOR_PRIORITY,

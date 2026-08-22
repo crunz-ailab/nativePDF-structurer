@@ -14,7 +14,6 @@ class RunConfigTests(unittest.TestCase):
     """Keep page notation and validation independent from the parser core."""
 
     def test_page_ranges_are_expanded_sorted_and_deduplicated(self) -> None:
-        #@GPT 使用临时占位PDF只验证配置边界，不启动PyMuPDF解析流程。
         with tempfile.NamedTemporaryFile(suffix=".pdf") as source:
             config = RunConfig.from_page_spec(
                 source_pdf=source.name,
@@ -32,7 +31,6 @@ class RunConfigTests(unittest.TestCase):
                     page_spec="4-2",
                 )
 
-    #@GPT 解析上下文在配置边界固定页号，避免可变列表或未排序页号进入核心；它不重新验证PDF存在性，文件校验仍由RunConfig负责。
     def test_parse_run_context_normalizes_resolved_pages(self) -> None:
         """Store one immutable, sorted page tuple beside the config."""
 
@@ -50,7 +48,6 @@ class RunConfigTests(unittest.TestCase):
         self.assertEqual(context.page_numbers, (2, 4))
         self.assertIsInstance(context.page_numbers, tuple)
 
-    #@GPT 两个策略的默认值必须保持历史行为，同时允许配置对象显式覆盖；这里只验证边界存储，不启动解析流程。
     def test_strategy_flags_preserve_defaults_and_accept_overrides(self) -> None:
         """Expose outline and pure-text-table policies in RunConfig."""
 
@@ -73,7 +70,6 @@ class RunConfigTests(unittest.TestCase):
         )
         self.assertTrue(override_config.force_pure_text_table_to_markdown)
 
-    #@GPT 页面上下文必须区分原始drawing和过滤后working drawing；这项测试锁定第一阶段迁移所依赖的对象身份和可变阶段字段。
     def test_page_run_context_keeps_raw_and_working_drawings(self) -> None:
         """Initialize page state without copying the drawing list."""
 
@@ -130,7 +126,6 @@ class RunConfigTests(unittest.TestCase):
         )
         self.assertEqual(page_context.suppressed_visual_indices, {2})
 
-        #@GPT 新页面必须获得独立的表格集合，防止前一页的候选或骨架ID泄漏到下一页。
         second_context = PageRunContext(
             page_index=3,
             page_number=4,

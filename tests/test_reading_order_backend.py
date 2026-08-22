@@ -33,7 +33,6 @@ class FakeSorter:
 
 
 class ReadingOrderBackendTests(unittest.TestCase):
-    #@GPT 视觉区域内部文字行排序迁移后仍按虚拟Y分行，并且行容差由调用方显式传入。
     def test_sort_lines_in_reading_order_with_explicit_tolerance(self) -> None:
         lines = [
             {"text": "右", "bbox": fitz.Rect(40, 10, 50, 18)},
@@ -54,7 +53,6 @@ class ReadingOrderBackendTests(unittest.TestCase):
             [1, 1, 2],
         )
 
-    #@GPT 已声明关联的Markdown分隔符应从原节点移到目标标题之前，不重新依赖标题文本内容判断。
     def test_attached_separator_moves_before_heading(self) -> None:
         heading = self._text("合并后的章节标题", 10, 20, 120, 32)
         separator = {
@@ -80,7 +78,6 @@ class ReadingOrderBackendTests(unittest.TestCase):
         )
         self.assertEqual(groups[1], [])
 
-    #@GPT 关联bbox无法由任何文字框包含时保持原节点不变，并在元数据中记录未解析数量。
     def test_attached_separator_without_heading_stays_in_place(self) -> None:
         heading = self._text("其他标题", 10, 20, 100, 32)
         separator = {
@@ -101,7 +98,6 @@ class ReadingOrderBackendTests(unittest.TestCase):
         self.assertEqual(metadata["unresolved_count"], 1)
         self.assertEqual(groups, original)
 
-    #@GPT 视觉原子与其下方短文本带被显著水平空白分开时，二级XY-Cut应拆成上下两个区块。
     def test_horizontal_partition_splits_visual_then_short_text(self) -> None:
         visual = {
             "kind": "visual_region",
@@ -124,7 +120,6 @@ class ReadingOrderBackendTests(unittest.TestCase):
         self.assertEqual(groups[0][0]["kind"], "visual_region")
         self.assertEqual(groups[1][0]["text"], "产品号")
 
-    #@GPT 水平分区必须使用视觉原子的完整render_bbox；顶部sort锚点不能虚构一条可切分的大空白。
     def test_horizontal_partition_uses_render_bbox_not_sort_anchor(self) -> None:
         visual = {
             "kind": "visual_region",
@@ -147,7 +142,6 @@ class ReadingOrderBackendTests(unittest.TestCase):
         self.assertEqual(len(groups), 1)
         self.assertEqual(len(groups[0]), 2)
 
-    #@GPT 两个视觉组件之间即使有空白也不能按“视觉+短文本带”规则拆分，保护复合图片整体性。
     def test_horizontal_partition_keeps_multiple_visuals_together(self) -> None:
         first = {
             "kind": "visual_region",
@@ -173,7 +167,6 @@ class ReadingOrderBackendTests(unittest.TestCase):
         self.assertEqual(len(groups), 1)
         self.assertEqual([item["text"] for item in groups[0]], ["first", "second"])
 
-    #@GPT 无有效水平切分时必须保持GapTree的列顺序；该回归覆盖论文双栏中左栏续行被全局Y排序挪到右栏之后的故障。
     def test_horizontal_partition_preserves_node_order_without_split(self) -> None:
         node_groups = [
             [self._text("左栏上部", 10, 10, 50, 20)],
@@ -198,7 +191,6 @@ class ReadingOrderBackendTests(unittest.TestCase):
             "no_accepted_horizontal_partition",
         )
 
-    #@GPT 两列稳定正文的首行若同时被提前放入同一标题节点，应分别回挂到对应列节点。
     def test_reparents_cross_column_leading_row(self) -> None:
         def column(anchor_x):
             return [
@@ -238,7 +230,6 @@ class ReadingOrderBackendTests(unittest.TestCase):
             "右栏首行",
         )
 
-    #@GPT 只有一个列首候选时不触发跨列回挂，避免标题或缩进文本单独改变阅读顺序。
     def test_reparent_requires_multiple_target_columns(self) -> None:
         def column(anchor_x):
             return [
@@ -268,7 +259,6 @@ class ReadingOrderBackendTests(unittest.TestCase):
             ],
         )
 
-    #@GPT 旋转页面的中心点排序键必须与完整bbox使用同一方向约定，防止文字行和视觉原子排序不一致。
     def test_transformed_reading_position_uses_virtual_upright_coordinates(self) -> None:
         rect = fitz.Rect(10, 20, 30, 40)
         page_rect = fitz.Rect(0, 0, 100, 200)
@@ -279,7 +269,6 @@ class ReadingOrderBackendTests(unittest.TestCase):
         )
         self.assertEqual(
             transformed_reading_position(rect, -90, page_rect),
-            #@GPT 旋转后的virtual_x使用页面高度减去矩形中心Y；本例中心Y为30，所以结果是170而非矩形左侧坐标推导值。
             (20.0, 170.0),
         )
         self.assertEqual(
@@ -301,7 +290,6 @@ class ReadingOrderBackendTests(unittest.TestCase):
             "gaptree_bbox": bbox,
         }
 
-    #@GPT 同一Y行的重复窄列元素应移动到右侧目标节点，并保留目标节点内的行内X排序。
     def test_attaches_repeated_narrow_domain_by_same_row(self) -> None:
         node_groups = [
             [
@@ -328,7 +316,6 @@ class ReadingOrderBackendTests(unittest.TestCase):
             ["1", "打开控制柜", "2", "松开螺丝"],
         )
 
-    #@GPT 后端已把编号和说明放在同一节点时，右挂阶段仍应恢复同行标记，而不是依赖跨节点搬运。
     def test_marks_same_node_narrow_domain_rows(self) -> None:
         node_groups = [[
             self._text("1", 10, 10, 15, 18),
@@ -356,7 +343,6 @@ class ReadingOrderBackendTests(unittest.TestCase):
             )
         )
 
-    #@GPT 被视觉原子隔开的单个末项仍可按“窄左域+窄同行空白”在同节点恢复同行关系。
     def test_marks_single_same_node_narrow_pair(self) -> None:
         node_groups = [[
             self._text("6", 10, 10, 15, 18),
@@ -377,7 +363,6 @@ class ReadingOrderBackendTests(unittest.TestCase):
         )
         self.assertEqual(metadata["moved_element_count"], 1)
 
-    #@GPT 目标行与窄列不在同一Y带时不能跨行搬运，避免目录标题或步骤说明错配。
     def test_does_not_attach_across_rows(self) -> None:
         node_groups = [
             [
@@ -402,7 +387,6 @@ class ReadingOrderBackendTests(unittest.TestCase):
             [["1", "2"], ["只在另一行"]],
         )
 
-    #@GPT 没有重复窄域时应返回浅复制节点，不改变调用方的元素归属和原始顺序。
     def test_preserves_groups_without_repeated_narrow_domain(self) -> None:
         node_groups = [
             [self._text("普通正文", 10, 10, 80, 18)],
@@ -422,7 +406,6 @@ class ReadingOrderBackendTests(unittest.TestCase):
             [["普通正文"], ["另一段正文"]],
         )
 
-    #@GPT 稳定重复左边界间距形成双峰时才合并同行文本碎片，保护目录和双栏正文的原子边界。
     def test_coalesces_stable_bimodal_fragments(self) -> None:
         elements = []
         for row in range(10):
@@ -438,7 +421,6 @@ class ReadingOrderBackendTests(unittest.TestCase):
         self.assertTrue(metadata["enabled"])
         self.assertGreater(metadata["merged_fragment_count"], 0)
 
-    #@GPT 适配器必须透传排序、节点和行元数据，不引入额外排序或坐标变换。
     def test_gaptree_adapter_forwards_backend_contract(self) -> None:
         elements = [{"id": 1}, {"id": 2}]
         sorter = GapTreeSorter(FakeSorter, get_bbox=lambda item: item["id"])
@@ -451,7 +433,6 @@ class ReadingOrderBackendTests(unittest.TestCase):
         self.assertEqual(sorter.current_cuts, [(1, 2, 3, 4)])
         self.assertEqual(sorter.backend_name, "gaptree")
 
-    #@GPT 后端工厂只注册发布版GapTree，并拒绝未知名称。
     def test_factory_selects_and_rejects_backends(self) -> None:
         sorter = create_reading_order_backend(
             " GapTree ",

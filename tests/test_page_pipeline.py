@@ -20,13 +20,11 @@ class FakePageContext:
 
     # def record_stage(self, stage: PageStage) -> None:
     #     self.stage_history.append(stage.value)
-    #@GPT PageStage是集中管理的字符串常量类而非Enum；测试假对象直接记录传入字符串，保持与PageRunContext契约一致。
     def record_stage(self, stage: str) -> None:
         self.stage_history.append(stage)
 
 
 class PagePipelineTests(unittest.TestCase):
-    #@GPT 纯内存测试固定完整页面阶段顺序和关键参数传递，不打开PDF或执行检测算法，避免编排变更只能靠长回归发现。
     def test_process_page_runs_complete_stage_order(self) -> None:
         context = FakePageContext()
         page = object()

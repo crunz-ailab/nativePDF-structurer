@@ -10,7 +10,6 @@ from nativePDF_structurer.pipeline import (
 
 
 class DocumentPipelineTests(unittest.TestCase):
-    #@GPT 文档循环只负责页顺序、提交和关闭文档；用最小假对象锁定这三个副作用，不引入PDF检测器。
     def test_process_document_pages_commits_in_order_and_closes(self) -> None:
         events: list[tuple] = []
         result = object()

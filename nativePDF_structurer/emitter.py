@@ -85,7 +85,6 @@ class ArtifactEmitter:
         )
         return path
 
-    #@GPT ParseResult是解析结果的持久所有者；面向结果对象的入口避免main()了解Markdown内部字段，同时保留底层序列化方法供测试和流式输出复用。
     def write_parse_result_markdown(
         self,
         result: ParseResult,
@@ -153,7 +152,6 @@ class ArtifactEmitter:
         )
         return path
 
-    #@GPT 调试 JSON 的固定文件名与 ParseResult 字段映射原先散落在 main()；集中到输出边界后，解析器只负责填充结果对象，且不改变任何 JSON 内容或人工报告的生成逻辑。
     def write_parse_result_debug_json(
         self,
         result: ParseResult,

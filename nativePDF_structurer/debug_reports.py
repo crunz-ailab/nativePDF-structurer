@@ -28,9 +28,7 @@ from PIL import Image, ImageDraw
 
 
 
-#@GPT 报告模块只消费已完成的记录字典，不参与PDF检测、Claim仲裁或页面状态修改。
 
-#@GPT 调试报告使用稳定文件名和Markdown字段，且不会影响最简模式的文档输出。
 
 def write_logical_horizontal_rule_report(
     path: Path,
@@ -127,7 +125,6 @@ def write_logical_horizontal_rule_report(
 
     path.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
-#@GPT GapTree调试图渲染只消费页面与排序元数据；DPI由核心显式传入，避免报告模块复制策略常量。
 def render_gaptree_debug_image(
     page: fitz.Page,
     page_number: int,
@@ -186,7 +183,6 @@ def render_gaptree_debug_image(
             )
         )
 
-    #@GPT 不绘制节点中心连线：跨栏跳转会形成长对角线遮挡正文，节点编号已经表达前序顺序。
 
     output_path = output_dir / (
         f"page_{page_number:03d}_gaptree_nodes.png"
@@ -194,7 +190,6 @@ def render_gaptree_debug_image(
     image.save(output_path)
     return output_path
 
-#@GPT 阅读顺序人工报告兼容GapTree和内部XY-Cut元数据，不参与节点生成或顺序裁决。
 def write_gaptree_report(
     path: Path,
     pages: list[dict],
@@ -225,7 +220,6 @@ def write_gaptree_report(
         ]:
             metadata = direction["gaptree"]
             fragment_merge = metadata.get("fragment_merge", {})
-            #@GPT 报告新增列首回挂摘要，让人工核查时能直接看到是否启用、学习到几列以及移动了多少元素。
             column_correction = metadata.get(
                 "column_anchor_correction",
                 {},
@@ -275,7 +269,6 @@ def write_gaptree_report(
 
     path.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
-#@GPT Claim冲突报告只格式化阶段C-F的现有记录，不重新执行仲裁。
 def write_claim_conflict_report(
     path: Path,
     page_resolutions: list[dict],
@@ -284,7 +277,6 @@ def write_claim_conflict_report(
     lines = [
         "# 检测器声明冲突报告",
         "",
-        #@GPT 报告分别展示阶段D候选存活、阶段E结构边界和阶段F文字归属结果。
         # "> 阶段 D 已按唯一归属过滤最终候选；阶段 E 的 render_bbox 重建尚未启用。",
         "> 阶段 D 已按唯一归属过滤最终候选；阶段 E/F 已按获胜图元和文字归属重建视觉区域。",
         "",
@@ -307,7 +299,6 @@ def write_claim_conflict_report(
                 "",
                 "### 候选存活预览",
                 "",
-                #@GPT 新增存活原因列，低置信候选因结构被拆散退出时无需再到动作JSON中反查。
                 "| 候选 | 检测器 | 置信度 | 声明图元 | 特征图元 | 赢得特征 | 存活 | 原因 |",
                 "|---|---|---:|---:|---:|---:|---|---|",
             ]
@@ -329,7 +320,6 @@ def write_claim_conflict_report(
                 f"{candidate.get('survival_reason', '—')} |"
             )
 
-        #@GPT 人工报告并列展示检测器提议bbox和获胜feature IDs并集bbox，便于核查边界变化。
         lines.extend(
             [
                 "",
@@ -426,7 +416,6 @@ def write_claim_conflict_report(
 
     path.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
-#@GPT 页眉页尾模板序列化与报告放在同一输出模块；运行期开关由核心显式传入。
 def serialize_header_footer_templates(
     templates: dict[str, dict],
 ) -> dict[str, dict]:
@@ -457,7 +446,6 @@ def serialize_header_footer_templates(
                         for value in template["bbox"]
                     ],
                     "height": round(template["height"], 3),
-                    #@GPT 精简模板补充宽度和复合成员数；页尾水平线与Logo均可核对是否按完整对象学习。
                     "width": round(
                         template.get("width", 0.0), 3
                     ),
@@ -502,7 +490,6 @@ def write_header_footer_report(
     lines = [
         "# 页眉与页尾硬匹配报告",
         "",
-        #@GPT 页尾镜像模板不再要求绝对X一致；报告说明页眉与页尾各自采用的硬位置语义，避免调试时误认为奇偶页走了页码特例。
         "文字内容不参与模板匹配；页眉使用绝对X位置，页尾复合对象使用距最近外侧页边的位置，二者均硬匹配尺寸、距页边高度和内容摘要。",
         "",
         (
@@ -568,7 +555,6 @@ def write_header_footer_report(
 
     path.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
-#@GPT 标题报告显式接收三个开关，避免调试输出模块读取核心全局配置。
 def write_heading_detection_report(
     path: Path,
     typography_profile: dict,
@@ -582,7 +568,6 @@ def write_heading_detection_report(
     lines = [
         "# Markdown 标题检测报告",
         "",
-        #@GPT 标题总开关与字体推断开关分别展示，避免目录匹配启用而字体推断关闭时产生误导。
         # f"启用：{'是' if typography_profile.get('enabled') else '否'}",
         f"标题总开关：{'开启' if enable_heading_detection else '关闭'}",
         "",
@@ -608,8 +593,6 @@ def write_heading_detection_report(
         "",
         f"最终输出标题：**{len(records)}** 行。",
         "",
-        #@GPT 报告增加本页正文参考字号和书签命中项，便于直接判断“为什么这行比正文大”以及层级是否来自PDF显式目录。
-        #@GPT 新增Markdown输出位置，区分由页面H2承载的首目录标题和仍在正文bbox输出的同页其他目录标题。
         "| 页面 | MD等级 | 输出位置 | 字号 | 本页正文上限 | 粗体字符占比 | 原因 | PDF书签 | 文字匹配 | 文本 |",
         "|---:|---:|---|---:|---:|---:|---|---|---|---|",
     ]
@@ -645,7 +628,6 @@ def write_visual_region_report(
         "",
         f"共生成 **{len(records)}** 个粗粒度视觉区域。",
         "",
-        #@GPT 报告增加端点附着列，便于人工核对上下/斜向引线是否接管了文字。
         "| 页面 | 图片文件 | 矢量对象 | 初始连通域 | 纳入文字行 | 端点文字 | 纳入小图片 | 图片尺寸 |",
         "|---:|---|---:|---:|---:|---:|---:|---:|",
     ]
@@ -746,7 +728,6 @@ def write_source_image_report(
         lines.extend(
             [
                 "",
-                #@GPT 精简图片报告同时统计表格和视觉区域覆盖数量，说明图片为何未重复输出。
                 (
                     "未逐条列出："
                     f"小装饰图片 {skipped_counts['filtered_small_image']} 个，"

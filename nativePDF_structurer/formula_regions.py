@@ -22,12 +22,10 @@ from pathlib import Path
 
 import fitz
 
-#@GPT 公式区域只需要矩形并集，不引入未使用的几何辅助函数。
 from .geometry import union_rects
 from .visual_assets import build_top_sort_bbox
 
 
-#@GPT 公式候选只使用PDF文本层的字体、符号和几何聚类，不引入OCR或模型。
 FORMULA_CLUSTER_VERTICAL_GAP_POINTS = 10.0
 FORMULA_NUMBER_ATTACH_MARGIN_POINTS = 14.0
 MATH_FONT_HINTS = (
@@ -280,7 +278,6 @@ def process_page_formula_regions(
     page_dict: dict,
     excluded_table_rects: list[fitz.Rect],
     excluded_visual_text_rects: list[fitz.Rect],
-    #@GPT 页眉/页尾带由图片/矢量硬匹配建立，公式检测只接收带外文本，避免页码或装饰符号被误识别。
     excluded_header_footer_rects: list[fitz.Rect],
     page_number: int,
     formula_dir: Path,
@@ -415,7 +412,6 @@ def process_page_formula_regions(
         owned_text_rects.extend(owned_rects)
         markdown_elements.append(
             {
-                #@GPT 公式渲染图同样采用双bbox，保证复杂公式完整截图但只按顶部位置参与跨元素排序。
                 "bbox": output_bbox,
                 "render_bbox": output_bbox,
                 "sort_bbox": build_top_sort_bbox(output_bbox),
@@ -435,7 +431,6 @@ def process_page_formula_regions(
                 "bbox": [
                     round(value, 3) for value in output_bbox
                 ],
-                #@GPT 公式记录同步保存渲染框与顶部排序框，便于调试图核查排序而不误解实际截图范围。
                 "render_bbox": [
                     round(value, 3) for value in output_bbox
                 ],

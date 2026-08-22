@@ -34,7 +34,6 @@ from .claims import CLAIM_DETECTOR_PRIORITY, claim_effective_priority
 from .geometry import drawing_item_bbox, rect_area, rect_center, union_rects
 
 
-#@GPT PageInventory集中管理页面图元的稳定ID、局部标签、逻辑容器和唯一归属结果。
 class PageInventory:
     """Stable page-element inventory and ownership ledger.
 
@@ -51,13 +50,9 @@ class PageInventory:
     ) -> None:
         self.page_number = page_number
         self.page_rect = fitz.Rect(page_rect)
-        #@GPT ID格式为"类型:序号"，序号即该图元在原始提取列表中的下标；
-        #@GPT 这样任何阶段都能从ID反查原始对象，且ID在同一页内稳定可复现。
         self.entries: dict[str, dict] = {}
         self._by_kind: dict[str, list[str]] = defaultdict(list)
-        #@GPT 原始dict对象在当前页面处理期间保持同一身份；建立临时反向索引，把检测器手中的对象安全映射回可序列化稳定ID。
         self._payload_identity_to_id: dict[tuple[str, int], str] = {}
-        #@GPT 父drawing仍保留d:ID供阶段B局部分类；阶段C/D通过此映射取得di:父序号:item序号的原子路径ID。
         self._drawing_item_ids_by_parent_identity: dict[
             int,
             list[str],
@@ -71,7 +66,6 @@ class PageInventory:
                 bbox=fitz.Rect(drawing["rect"]).normalize(),
                 payload=drawing,
             )
-            #@GPT drawing内部item按需展开；没有跨候选冲突的页面无需支付原子路径登记成本。
 
         for index, image in enumerate(image_blocks):
             self._register(
@@ -105,16 +99,12 @@ class PageInventory:
             "source_index": source_index,
             "bbox": bbox,
             "payload": payload,
-            #@GPT 阶段B在此写入局部标签；阶段A登记时保持为空字典。
             "labels": {},
-            #@GPT 阶段D将在此写入唯一归属候选ID；当前阶段恒为None。
             "owner": None,
         }
         self._by_kind[kind].append(element_id)
-        #@GPT Python对象id只作为本次运行内的反查键，绝不写入清单；对外始终输出d:/i:/t:稳定ID。
         self._payload_identity_to_id[(kind, id(payload))] = element_id
 
-    #@GPT 表格父容器不是PDF中的单个drawing，而是检测器根据网格拓扑建立的逻辑对象；为它登记稳定tc:ID，使D阶段不再要求表格与单元格内部复杂矢量争抢同一批feature IDs。
     def register_table_container(
         self,
         table_number: int,
@@ -138,7 +128,6 @@ class PageInventory:
         }
         return element_id
 
-    #@GPT 相邻闭合视觉容器登记独立稳定ID，使候选合并可以阻止跨容器连接。
     def register_visual_container(
         self,
         container_number: int,
@@ -175,7 +164,6 @@ class PageInventory:
     def payload_of(self, element_id: str) -> dict:
         return self.entries[element_id]["payload"]
 
-    #@GPT 检测器已经持有原始图元对象时直接反查稳定ID，避免再次通过bbox中心点猜测对象身份。
     def id_for_payload(
         self,
         payload: dict,
@@ -183,7 +171,6 @@ class PageInventory:
     ) -> str | None:
         return self._payload_identity_to_id.get((kind, id(payload)))
 
-    #@GPT 批量反查保持输入顺序并去重，供表格簇、视觉连通域和原图组合候选共同使用。
     def ids_for_payloads(
         self,
         payloads: list[dict],
@@ -199,7 +186,6 @@ class PageInventory:
             matched.append(element_id)
         return matched
 
-    #@GPT 惰性展开保持ID确定性：无论何时触发，同一父drawing的第N个item始终是di:父序号:N；未冲突页面不支付items遍历成本。
     def _ensure_drawing_item_ids(
         self,
         drawing: dict,
@@ -239,7 +225,6 @@ class PageInventory:
         )
         return list(item_ids)
 
-    #@GPT 候选边界只能在“该检测器实际输入ID集合”内筛选；包含零面积线段的接触关系使用闭区间判断，不再依赖Rect.intersects()对退化矩形的行为。
     def ids_touching_rect(
         self,
         rect: fitz.Rect,
@@ -268,8 +253,6 @@ class PageInventory:
                 matched.append(element_id)
         return matched
 
-    #@GPT 阶段C/D需要“落在某个候选bbox内的图元”，这里只提供纯几何查询，不含任何归属语义。
-    #@GPT 区域查询统一使用ids_touching_rect和ids_centred_in，分别表达边界接触与中心归属语义。
 
     def ids_centred_in(
         self,
@@ -291,7 +274,6 @@ class PageInventory:
             for kind, ids in sorted(self._by_kind.items())
         }
 
-    #@GPT 审计输出只保留ID、类型、bbox和标签；payload含PDF路径指令和图片字节，不写入JSON。
     def to_audit_record(self, label_summary_only: bool = True) -> dict:
         label_counts: Counter = Counter()
         for entry in self.entries.values():
@@ -319,9 +301,6 @@ class PageInventory:
             ]
         return record
 
-    #@GPT 单图元仲裁把候选排序与遍历、报告逻辑分离，保证真实归属和审计使用同一决策入口。
-    #@GPT 规则按语义分三层：不同检测器先看显式优先级；同检测器再看置信度；仍相同才用候选稳定ID保证确定性。
-    #@GPT 不把bbox面积、页码或文字内容作为隐藏特例，避免将局部经验固化为算法条件。
     def resolve_conflict(
         self,
         element_id: str,
@@ -341,7 +320,6 @@ class PageInventory:
                 "ranked_contenders": [],
             }
 
-        #@GPT 所有竞争候选在此统一排序，避免归属结果与审计报告采用不同优先级口径。
         detector_names = {
             claim.get("detector", "unknown")
             for claim in contenders
@@ -349,7 +327,6 @@ class PageInventory:
         ranked = sorted(
             contenders,
             key=lambda claim: (
-                #@GPT 使用集中计算的有效优先级，使策略降级能同时作用于仲裁和报告。
                 -claim_effective_priority(claim, priorities),
                 -float(claim.get("confidence", 0.0)),
                 -int(claim.get("feature_count", 0)),
@@ -357,7 +334,6 @@ class PageInventory:
             ),
         )
         winner = ranked[0]
-        #@GPT 获胜者、同优先级集合和报告字段必须复用实际排序的有效优先级。
         winner_priority = claim_effective_priority(
             winner,
             priorities,
@@ -370,7 +346,6 @@ class PageInventory:
         same_priority = [
             claim
             for claim in ranked
-            #@GPT 同优先级比较复用claim_effective_priority()，与获胜者排序保持一致。
             if claim_effective_priority(claim, priorities)
             == top_priority
         ]
@@ -387,7 +362,6 @@ class PageInventory:
             == int(winner.get("feature_count", 0))
         ]
 
-        #@GPT 只有所有候选有效优先级一致时，才继续使用置信度、特征数量和稳定ID解释裁决原因。
         if len(same_priority) < len(ranked):
             resolution_reason = "detector_priority"
         elif len(same_confidence) > 1 and len(same_feature_count) < len(same_confidence):
@@ -405,7 +379,6 @@ class PageInventory:
                 {
                     "claim_id": claim.get("claim_id"),
                     "detector": claim.get("detector"),
-                    #@GPT 报告展示实际参与排序的有效优先级；低置信表格会明确显示为150而不是误导性的300。
                     "priority": claim_effective_priority(
                         claim,
                         priorities,
@@ -433,7 +406,6 @@ class PageInventory:
             claim["claim_id"]: claim
             for claim in claims
         }
-        #@GPT 阶段D使用“有效声明集合”承接惰性细分；原始manifest保持不变，审计时仍能看到检测器最初声明了哪个父drawing。
         effective_claimed_ids_by_claim: dict[str, set[str]] = {
             claim_id: {
                 element_id
@@ -441,7 +413,6 @@ class PageInventory:
                     "claimed_element_ids", []
                 )
                 if element_id in self.entries
-                #@GPT 阶段F统一处理文字；D只仲裁结构图元，避免视觉检测器在边界确定前提前锁定text owner。
                 and self.entries[element_id]["kind"] != "text"
             }
             for claim_id, claim in claims_by_id.items()
@@ -467,13 +438,10 @@ class PageInventory:
                         }
                     )
                     continue
-                #@GPT 文字统一延迟到阶段F处理，本循环只建立结构图元的竞争关系。
                 if self.entries[element_id]["kind"] == "text":
                     continue
                 contenders_by_element_id[element_id].append(claim)
 
-        #@GPT 只有父drawing被多个候选同时声明时才惰性展开items，避免密集但无冲突的页面登记海量原子路径。
-        #@GPT 每个候选只获得与自身提议bbox接触的items；父drawing本身从有效声明中移除，防止一个跨区bbox继续整体参与仲裁。
         refined_parent_drawing_count = 0
         refined_drawing_item_count = 0
         for element_id, contenders in list(
@@ -522,7 +490,6 @@ class PageInventory:
                             item_id
                         )
 
-        #@GPT 所有图元通过resolve_conflict()取得唯一所有者和可审计裁决原因。
         owner_by_element_id: dict[str, str] = {}
         conflict_records: list[dict] = []
         for element_id, contenders in sorted(
@@ -561,7 +528,6 @@ class PageInventory:
                         {
                             "claim_id": claim["claim_id"],
                             "detector": claim["detector"],
-                            #@GPT 直接使用resolve_conflict()返回的有效优先级，保证报告与实际排序一致。
                             "priority": claim["priority"],
                             "confidence": claim.get(
                                 "confidence", 0.0
@@ -576,7 +542,6 @@ class PageInventory:
 
         candidate_results: list[dict] = []
         for claim_id, claim in sorted(claims_by_id.items()):
-            #@GPT 候选统计读取惰性细分后的有效集合，使获胜计数和阶段E边界使用真实原子ID。
             claimed_ids = effective_claimed_ids_by_claim[claim_id]
             feature_ids = effective_feature_ids_by_claim[claim_id]
             won_ids = sorted(
@@ -589,7 +554,6 @@ class PageInventory:
                 for element_id in feature_ids
                 if owner_by_element_id.get(element_id) == claim_id
             )
-            #@GPT 对候选完整性只读取ID归属结果：lost_feature_ids表示声明为结构证据、但在冲突中判给其他候选的图元，不使用bbox覆盖率补判。
             lost_feature_ids = sorted(
                 element_id
                 for element_id in feature_ids
@@ -598,7 +562,6 @@ class PageInventory:
                     claim_id,
                 )
             )
-            #@GPT 阶段E边界预览只使用候选真正赢得的feature IDs；不把尚未进入统一F阶段的文字行用于结构边界。
             raw_owned_feature_bbox = (
                 union_rects(
                     [
@@ -610,7 +573,6 @@ class PageInventory:
                 else None
             )
             proposed_bbox = fitz.Rect(claim.get("bbox", (0, 0, 0, 0)))
-            #@GPT 阶段E只负责从检测器提议中剔除失去的图元，不能因一条穿越候选的长线把边界扩到提议之外；因此统一取“获胜特征并集 ∩ proposed_bbox”。
             owned_feature_bbox = None
             if raw_owned_feature_bbox is not None:
                 clipped_owned_bbox = (
@@ -630,7 +592,6 @@ class PageInventory:
                     False,
                 )
             )
-            #@GPT 候选必须拥有正面积特征边界，并满足检测器声明的完整性约束，才能进入输出阶段。
             survives_preview = (
                 bool(won_feature_ids)
                 and owned_feature_bbox is not None
@@ -664,7 +625,6 @@ class PageInventory:
                     "won_feature_element_ids": won_feature_ids,
                     "lost_feature_count": len(lost_feature_ids),
                     "lost_feature_element_ids": lost_feature_ids,
-                    #@GPT 当前仅输出边界预览，不回写真实PNG；面积比可快速暴露候选是否因失去他人图元而大幅收缩。
                     "proposed_bbox": [
                         round(value, 3)
                         for value in proposed_bbox
@@ -690,7 +650,6 @@ class PageInventory:
                         if proposed_area > 0
                         else None
                     ),
-                    #@GPT survives_preview用于过滤Markdown候选；调试图片可保留在磁盘中供归属审计。
                     "survives_preview": survives_preview,
                     "survival_reason": survival_reason,
                 }
@@ -733,7 +692,6 @@ class PageInventory:
         }
 
 
-#@GPT 台账构建独立成函数，使调用点只需一行；drawings/image_blocks/text_lines仍由现有提取逻辑产生，保证零行为变化。
 def build_page_inventory(
     page_number: int,
     page_rect: fitz.Rect,

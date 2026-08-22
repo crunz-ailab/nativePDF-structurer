@@ -44,13 +44,11 @@ import fitz
 from collections import Counter, defaultdict
 from ._vendor.gap_tree import GapTree
 
-#@GPT 分隔符与标题候选竞争时复用项目统一的非负矩形面积定义，避免阅读顺序模块产生另一套面积语义。
 from .geometry import rect_area
 
 TEXT_ROW_TOLERANCE_POINTS = 3.0
 
 
-#@GPT 将旋转文本bbox转换到虚拟转正坐标；排序后端只消费该坐标，不修改原PDF bbox。
 def transformed_reading_bbox(
     rect: fitz.Rect,
     source_angle: int,
@@ -86,8 +84,6 @@ def transformed_reading_bbox(
     )
 
 
-#@GPT 虚拟转正位置与完整bbox必须使用同一方向变换；该函数只负责中心点排序键，不改变原始页面坐标。
-#@GPT 通过显式接收页面矩形和旋转角度，避免阅读顺序模块复制核心全局状态。
 def transformed_reading_position(
     rect: fitz.Rect,
     source_angle: int,
@@ -101,7 +97,6 @@ def transformed_reading_position(
     - virtual_x：同一行内从左至右顺序
     """
     rect = fitz.Rect(rect)
-    #@GPT PyMuPDF Rect不提供统一的center接口，直接取两端点均值且不增加几何模块依赖。
     x = (rect.x0 + rect.x1) / 2.0
     y = (rect.y0 + rect.y1) / 2.0
 
@@ -130,7 +125,6 @@ from collections.abc import Callable
 from typing import Any
 
 
-#@GPT 适配器只包住GapTree实际使用的三个接口，保持发布版排序输出稳定。
 class GapTreeSorter:
     """Expose the small sorter interface consumed by the core reflow stage."""
 
@@ -160,7 +154,6 @@ class GapTreeSorter:
 
         return self._implementation.current_rows
 
-    #@GPT 核心审计报告还读取GapTree当前竖切线；适配器必须原样透传，不能只覆盖排序和节点接口。
     @property
     def current_cuts(self) -> Any:
         """Expose the backend cut metadata for the existing audit report."""
@@ -168,7 +161,6 @@ class GapTreeSorter:
         return self._implementation.current_cuts
 
 
-#@GPT 发布版只注册经过完整回归验证的GapTree；实验性排序器保存在本地checkpoint，不进入公共运行路径。
 SUPPORTED_READING_ORDER_BACKENDS = ("gaptree",)
 
 
@@ -189,8 +181,6 @@ def create_reading_order_backend(
     )
 
 
-#@GPT “窄文本域按同行右挂”用于处理目录和步骤列表中的窄编号列归属。
-#@GPT 该函数只接收页面几何与显式行容差，不依赖核心文件的全局变量，方便后续替换排序后端并保持算法可测试。
 def attach_narrow_text_domains_by_rows(
     node_groups: list[list[dict]],
     page_rect: fitz.Rect,
@@ -228,7 +218,6 @@ def attach_narrow_text_domains_by_rows(
         if text_heights
         else max(page_rect.height * 0.01, 1.0)
     )
-    #@GPT 窄列宽度和同行间距都按当前页文字高度自适应；同行间距上限只排除跨大栏的远距离误配。
     narrow_domain_threshold = max(
         median_text_height * 2.5,
         page_rect.width * 0.012,
@@ -242,8 +231,6 @@ def attach_narrow_text_domains_by_rows(
         page_rect.width * 0.025,
     )
 
-    #@GPT 在每个GapTree节点内筛选单个窄文本元素，再按X左边缘、右边缘或中心的稳定对齐关系聚簇；宽元素不会污染独立编号列。
-    #@GPT 对齐容差随当前页文字高度缩放，不读取编号内容、目录标题、页码或固定X坐标。
     narrow_x_alignment_tolerance = max(
         median_text_height * 0.60,
         page_rect.width * 0.004,
@@ -263,8 +250,6 @@ def attach_narrow_text_domains_by_rows(
         if not narrow_group_text:
             continue
 
-        #@GPT 每个窄元素只进入一个X簇；簇锚点使用当前成员中位数，避免少量PDF浮点误差
-        #@GPT 或编号字符宽度变化造成链式漂移。左/右/中心任一对齐即可覆盖左对齐和右对齐编号列。
         x_clusters: list[list[dict]] = []
         for element in sorted(
             narrow_group_text,
@@ -323,7 +308,6 @@ def attach_narrow_text_domains_by_rows(
             if not cluster:
                 continue
 
-            #@GPT 重复窄列要求跨两个Y行；单元素簇只能通过下方严格的同节点同行近距离规则。
             cluster_row_centers: list[float] = []
             for element in sorted(
                 cluster,
@@ -344,7 +328,6 @@ def attach_narrow_text_domains_by_rows(
                 ):
                     cluster_row_centers.append(center_y)
             if len(cluster_row_centers) < 2:
-                #@GPT 图片或表格可能把列表末项切成独立节点；单个窄元素仅在同节点存在同行、近距离右侧文字时进入局部配对。
                 has_local_same_row_pair = any(
                     (
                         target is not source
@@ -409,7 +392,6 @@ def attach_narrow_text_domains_by_rows(
                 narrow_domain_threshold,
                 3,
             ),
-            #@GPT 即使本页没有形成重复窄簇，也记录元素级X对齐容差供审计排查。
             "narrow_x_alignment_tolerance": round(
                 narrow_x_alignment_tolerance,
                 3,
@@ -425,7 +407,6 @@ def attach_narrow_text_domains_by_rows(
             "merges": [],
         }
 
-    #@GPT 候选目标使用原子文本元素而不是目标节点bbox，避免一个单行标题代表整列的垂直范围。
     target_elements = [
         {
             "node_index": node_index,
@@ -435,7 +416,6 @@ def attach_narrow_text_domains_by_rows(
         for element in group
         if element.get("kind", "text") == "text"
     ]
-    #@GPT 右挂以单个文本元素为单位，不整体搬运源节点。
     moved_element_ids: set[int] = set()
     claimed_target_ids: set[int] = set()
     moved_by_target_node: dict[int, list[dict]] = defaultdict(list)
@@ -449,7 +429,6 @@ def attach_narrow_text_domains_by_rows(
             for target in target_elements:
                 target_element = target["element"]
                 target_node_index = target["node_index"]
-                #@GPT 窄列与说明可能已被某些后端放入同一节点；仍需建立同行配对和行标记，此时搬运是同节点内的稳定重排。
                 if id(target_element) in claimed_target_ids:
                     continue
 
@@ -478,7 +457,6 @@ def attach_narrow_text_domains_by_rows(
                 if overlap_ratio < 0.50:
                     continue
 
-                #@GPT 同一行若存在更近的中间文本元素，不跨过它连接到更远栏位。
                 intermediate = [
                     other
                     for other in target_elements
@@ -487,8 +465,6 @@ def attach_narrow_text_domains_by_rows(
                         id(target_element),
                     }
                     and other["node_index"] != source_node_index
-                    #@GPT 只有元素完整落在源列与目标列之间才算真正的中间栏位；
-                    #@GPT 目标栏内上一行文字的x0通常等于target_rect.x0，不应因0.05pt浮点重叠阻断当前行配对。
                     and (
                         other["element"]["gaptree_bbox"][0]
                         >= source_rect.x1
@@ -578,7 +554,6 @@ def attach_narrow_text_domains_by_rows(
                 narrow_domain_threshold,
                 3,
             ),
-            #@GPT 候选存在但没有同行目标时仍输出X聚簇容差，避免调试记录缺字段。
             "narrow_x_alignment_tolerance": round(
                 narrow_x_alignment_tolerance,
                 3,
@@ -604,7 +579,6 @@ def attach_narrow_text_domains_by_rows(
         ]
         if node_index in moved_by_target_node:
             remaining_group.extend(moved_by_target_node[node_index])
-            #@GPT 同行合并后按文字中心Y和行容差分桶，再在桶内按X排序，避免微小基线误差颠倒编号和说明。
             ordered_group = sorted(
                 remaining_group,
                 key=lambda element: (
@@ -659,7 +633,6 @@ def attach_narrow_text_domains_by_rows(
             narrow_domain_threshold,
             3,
         ),
-    #@GPT 审计输出元素级X聚簇容差，便于解释窄列是否形成稳定对齐。
         "narrow_x_alignment_tolerance": round(
             narrow_x_alignment_tolerance,
             3,
@@ -682,7 +655,6 @@ def coalesce_horizontal_text_fragments(
     elements: list[dict],
 ) -> tuple[list[dict], dict]:
     """仅在同行间距形成稳定双峰时合并短间距文本碎片。"""
-    #@GPT 碎片配对使用页面中位文字高度推导的中线带，允许同一基线的小字体差异但不会吞入下一行。
     text_heights = [
         item["gaptree_bbox"][3] - item["gaptree_bbox"][1]
         for item in elements
@@ -746,7 +718,6 @@ def coalesce_horizontal_text_fragments(
             if item.get("kind", "text") == "text"
         ]
 
-        #@GPT 至少四个同行文本框才可能表达“多个记录各含多个字段”；双栏普通正文不参与阈值估计。
         if len(text_items) < 4:
             continue
 
@@ -756,17 +727,14 @@ def coalesce_horizontal_text_fragments(
             text_items,
             text_items[1:],
         ):
-            #@GPT 使用相邻左边界间距而非框尾空白，避免字段内容宽度变化扰动列间距统计。
             anchor_delta = (
                 right_item["gaptree_bbox"][0]
                 - left_item["gaptree_bbox"][0]
             )
 
-            #@GPT 改用相邻左边界间距，利用PDF字段起点的重复结构，不受产品号或说明文字长度影响。
             if anchor_delta > 0:
                 candidate_gaps.append(anchor_delta)
 
-    #@GPT 样本过少时不推断双峰，保持原始文本块，避免在普通页面上过度合并。
     if len(candidate_gaps) < 20:
         return elements, {
             "enabled": False,
@@ -777,7 +745,6 @@ def coalesce_horizontal_text_fragments(
 
     sorted_gaps = sorted(candidate_gaps)
     trimmed_count = max(2, int(len(sorted_gaps) * 0.95))
-    #@GPT 使用截尾后的稳定跃迁检测双峰，避免少量超大空白吸引聚类中心。
 
     trimmed_gaps = sorted_gaps[:trimmed_count]
     minimum_cluster_size = max(
@@ -786,7 +753,6 @@ def coalesce_horizontal_text_fragments(
     )
     split_candidates: list[tuple[float, int]] = []
 
-    #@GPT 只在两侧都至少占15%的平衡位置寻找最大乘法跃迁，忽略少数极端大空白并保留重复结构。
     for split_index in range(
         minimum_cluster_size,
         len(trimmed_gaps) - minimum_cluster_size + 1,
@@ -806,7 +772,6 @@ def coalesce_horizontal_text_fragments(
         default=(1.0, 0),
     )
 
-    #@GPT 最大稳定跃迁不足1.8倍时视为单峰间距，不做碎片合并。
     if gap_ratio < 1.8 or split_index == 0:
         return elements, {
             "enabled": False,
@@ -843,7 +808,6 @@ def coalesce_horizontal_text_fragments(
                 and row_output[-1].get("kind", "text") == "text"
             ):
                 previous = row_output[-1]
-                #@GPT 使用与阈值估计一致的左边界间距，并保留最后碎片起点以支持多字段链式合并。
                 previous_anchor = previous.get(
                     "last_fragment_virtual_x0",
                     previous["gaptree_bbox"][0],
@@ -906,8 +870,6 @@ def coalesce_horizontal_text_fragments(
         "merged_fragment_count": merged_fragment_count,
     }
 
-#@GPT 跨列首行校正消费GapTree节点输出，只依据列锚点、页面几何和节点顺序。
-#@GPT 规则保留在排序模块能让后续替换GapTree时复用同一后处理，同时避免复制核心全局策略。
 def reparent_cross_column_leading_row(
     node_groups: list[list[dict]],
     page_rect: fitz.Rect,
@@ -1001,7 +963,6 @@ def reparent_cross_column_leading_row(
             }
         )
 
-    #@GPT 同一X位置若出现多个节点，只保留重复元素更多者；随后要求列锚点横向明显分离。
     distinct_columns: list[dict] = []
     for column in sorted(
         stable_columns,
@@ -1081,7 +1042,6 @@ def reparent_cross_column_leading_row(
                 }
             )
 
-    #@GPT 单个标题或缩进不能触发移动；同一视觉行必须同时命中至少两条不同稳定列。
     candidate_rows: list[list[dict]] = []
     row_tolerance = median_text_height * 0.65
     for candidate in sorted(
@@ -1188,7 +1148,6 @@ def reparent_cross_column_leading_row(
         ],
     }
 
-#@GPT 二级XY-Cut在GapTree节点内部按水平空白分区，页面角度和行容差由调用方显式传入。
 def _horizontal_partition_layout_bbox(
     element: dict,
     source_angle: int,
@@ -1209,7 +1168,6 @@ def _horizontal_partition_layout_bbox(
     )
 
 
-#@GPT 节点内水平断层的最小尺度来自当前页文本高度；不新增固定页码规则，也不把普通行间距误当成分区。
 def _horizontal_partition_gap_threshold(
     node_groups: list[list[dict]],
     page_rect: fitz.Rect,
@@ -1228,7 +1186,6 @@ def _horizontal_partition_gap_threshold(
         if text_heights
         else max(page_rect.height * 0.01, 1.0)
     )
-    #@GPT 以约半个文字高度作为水平断层下限，并保留现有同行容差的两倍，避免拆开普通段落行距。
     gap_threshold = max(
         row_tolerance_points * 2.0,
         median_text_height * 0.45,
@@ -1236,8 +1193,6 @@ def _horizontal_partition_gap_threshold(
     return median_text_height, gap_threshold
 
 
-#@GPT 先拆分GapTree节点，再依据区块之间的垂直关系和同层左右关系排序；
-#@GPT 这是轻量二级XY-Cut，不重写GapTree，也不引入“产品号”等语义特判。
 def split_gap_tree_nodes_by_horizontal_gaps(
     node_groups: list[list[dict]],
     source_angle: int,
@@ -1326,7 +1281,6 @@ def split_gap_tree_nodes_by_horizontal_gaps(
         if current_component:
             components.append(current_component)
 
-        #@GPT 仅当上方含视觉原子且下方是短纯文本带时接受切分，避免把同一视觉簇内部的多个图片拆散。
         accepted_boundary_indices: list[int] = []
         for boundary_index, gap in enumerate(component_gaps):
             if gap < gap_threshold:
@@ -1360,7 +1314,6 @@ def split_gap_tree_nodes_by_horizontal_gaps(
             )
             continue
 
-        #@GPT 将未被接受的内部候选间隙重新并回同一片段，避免上方多个图片因各自bbox间距较大而被拆散。
         fragment_component_ranges: list[tuple[int, int]] = []
         range_start = 0
         for boundary_index in accepted_boundary_indices:
@@ -1395,7 +1348,6 @@ def split_gap_tree_nodes_by_horizontal_gaps(
                 max(item["bbox"].y1 for item in fragment_items),
             )
             for element in fragment_group:
-                #@GPT 区块来源只用于审计和循环时的稳定排序，不参与内容语义判断。
                 element["horizontal_partition_original_node"] = (
                     original_node_index
                 )
@@ -1443,8 +1395,6 @@ def split_gap_tree_nodes_by_horizontal_gaps(
         )
         fragment_records.extend(node_split_fragments)
 
-    #@GPT 只有确实接受了“视觉原子后接短文本带”的水平切分，才允许建立跨片段DAG；
-    #@GPT 无有效切分时必须保留GapTree原节点顺序，否则按bbox全局重排会把双栏续行插到另一栏顶部之后。
     if not split_records:
         return [record["group"] for record in fragment_records], {
             "enabled": False,
@@ -1489,8 +1439,6 @@ def split_gap_tree_nodes_by_horizontal_gaps(
             "cycle_detected": False,
         }
 
-    #@GPT 对区块建立一个小型空间DAG：垂直明显分离时按上下，处于同一阅读带时按左右；
-    #@GPT 对“薄的下方区块”优先放到高大区块之后，解决产品号落在第二张表前的问题。
     def is_thin_lower_fragment(
         lower: dict,
         upper: dict,
@@ -1578,7 +1526,6 @@ def split_gap_tree_nodes_by_horizontal_gaps(
 
     cycle_detected = len(ordered_fragment_indices) != len(fragment_records)
     if cycle_detected:
-        #@GPT 若复杂交错布局形成环，则采用稳定的原GapTree节点顺序，避免强行破坏已有局部关系。
         ordered_fragment_indices = sorted(
             range(len(fragment_records)),
             key=lambda index: (
@@ -1610,8 +1557,6 @@ def split_gap_tree_nodes_by_horizontal_gaps(
         "cycle_detected": cycle_detected,
     }
 
-#@GPT separator→heading关系由检测阶段声明；此函数只重排已关联元素，不重新判断标题语义。
-#@GPT 目标选择以几何包含为硬条件，文本匹配仅用于同bbox候选的稳定排序。
 def apply_attached_separator_heading_precedence(
     node_groups: list[list[dict]],
 ) -> tuple[list[list[dict]], dict]:
@@ -1682,7 +1627,6 @@ def apply_attached_separator_heading_precedence(
                 and text_bbox.y1 + bbox_tolerance
                 >= attached_bbox.y1
             )
-            #@GPT 文字碎片合并后文本可能变化，因此文本只作为同bbox候选的排序证据，不作为淘汰条件。
             if not bbox_contains_attachment:
                 continue
 
@@ -1784,7 +1728,6 @@ def apply_attached_separator_heading_precedence(
                 id(element),
                 [],
             )
-            #@GPT 同一填充长条可能被解析成上下两条边界；先按原始规则条和分隔线Y排序，格式器仍会把相邻`---`去重成一个Markdown分隔符。
             rebuilt_group.extend(
                 sorted(
                     attached_separators,
@@ -1809,8 +1752,6 @@ def apply_attached_separator_heading_precedence(
         "attachments": attachment_records,
     }
 
-#@GPT 视觉区域和原始图片内部的原生文字按虚拟转正坐标分行，再按X排序。
-#@GPT 行容差由核心绑定后传入，保持visual_assets既有三参数回调接口不变，同时避免复制核心全局常量。
 def sort_lines_in_reading_order(
     lines: list[dict],
     source_angle: int,
@@ -1891,8 +1832,6 @@ def sort_elements_with_gap_tree(
     positioned_elements: list[dict] = []
 
     for element in elements:
-        #@GPT 非文本元素优先使用顶部sort_bbox参与切分，避免高图片跨越多行；文字使用原始bbox。
-        #@GPT 后端公共入口接受fitz.Rect或等价四元组；在坐标变换前统一规范化，保证两种后端输入契约一致。
         sorting_rect = fitz.Rect(
             element.get(
                 "sort_bbox",
@@ -1918,7 +1857,6 @@ def sort_elements_with_gap_tree(
             }
         )
 
-    #@GPT 在调用GapTree前仅合并具有稳定短间距的同行文字碎片；表格、图片和视觉区域仍保持原子块。
     positioned_elements, fragment_merge_metadata = (
         coalesce_horizontal_text_fragments(
             elements=positioned_elements,
@@ -1930,11 +1868,9 @@ def sort_elements_with_gap_tree(
         implementation=GapTree,
         get_bbox=lambda item: item["gaptree_bbox"]
     )
-    #@GPT 先保留GapTree节点结构完成列首校正和XY-Cut，再展平为最终原子顺序。
     sorter.sort(positioned_elements)
 
     raw_node_groups = sorter.get_nodes_text_blocks()
-    #@GPT 窄列按同一Y行逐元素右挂，避免跨越多个目录行移动整列；未配对元素留在原GapTree节点。
     node_groups, column_anchor_correction = (
         attach_narrow_text_domains_by_rows(
             node_groups=raw_node_groups,
@@ -1942,15 +1878,12 @@ def sort_elements_with_gap_tree(
             row_tolerance_points=TEXT_ROW_TOLERANCE_POINTS,
         )
     )
-    #@GPT 窄列逐行右挂之后，再校正被纯文本标题节点提前接走的多列首行；
-    #@GPT 该阶段必须早于水平分区，使列首先回到稳定正文列，再由后续XY-Cut处理剩余混合节点。
     node_groups, cross_column_leading_row = (
         reparent_cross_column_leading_row(
             node_groups=node_groups,
             page_rect=page_rect,
         )
     )
-    #@GPT GapTree节点内部再做一次水平空白分区，解决一个竖向大节点同时包含上方视觉块和下方表头时的阅读顺序错误。
     node_groups, horizontal_partition = (
         split_gap_tree_nodes_by_horizontal_gaps(
             node_groups=node_groups,
@@ -1959,7 +1892,6 @@ def sort_elements_with_gap_tree(
             row_tolerance_points=TEXT_ROW_TOLERANCE_POINTS,
         )
     )
-    #@GPT 两级空间切分完成后再执行分隔符与标题的显式局部先后关系；若先执行，移动后的合成顺序可能反过来影响GapTree分栏和XY-Cut边界。
     node_groups, attached_separator_heading_order = (
         apply_attached_separator_heading_precedence(
             node_groups=node_groups,
@@ -1976,7 +1908,6 @@ def sort_elements_with_gap_tree(
         for element in node_group:
             element_node_index[id(element)] = node_index
 
-    #@GPT 仅在窄文本域已归入右侧节点后按Y恢复同行；其他节点保持每个原子独占行，避免跨栏重新拼接。
     next_row_index = 0
     for node_group in node_groups:
         row_anchor_y: float | None = None
@@ -2044,7 +1975,6 @@ def sort_elements_with_gap_tree(
                         for element in node_group
                     )
                 ),
-                #@GPT 非文本原子块的text包含完整Markdown链接；报告样例改用类型标签，避免嵌套链接破坏报告表格。
                 "samples": [
                     (
                         element.get("text", "")
@@ -2065,13 +1995,9 @@ def sort_elements_with_gap_tree(
         "cuts": cuts,
         "nodes": nodes,
         "fragment_merge": fragment_merge_metadata,
-        #@GPT 将自动学习到的列锚点及实际移动记录写入调试元数据，便于确认规则没有依赖页码或固定坐标。
         "column_anchor_correction": column_anchor_correction,
-        #@GPT 记录跨列首行是否触发、稳定列锚点和具体移动；该审计与窄编号列右挂分开。
         "cross_column_leading_row": cross_column_leading_row,
-        #@GPT 将二级XY-Cut的断层、区块来源和最终顺序写入审计，便于确认是否发生跨节点重排。
         "horizontal_partition": horizontal_partition,
-        #@GPT 单独记录哪些分隔符通过“同Y且端点相接”移动到标题之前；普通GapTree节点顺序不混入该审计。
         "attached_separator_heading_order": (
             attached_separator_heading_order
         ),

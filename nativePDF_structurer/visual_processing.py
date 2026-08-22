@@ -83,7 +83,6 @@ from .visual_assets import (
 )
 
 
-#@GPT 视觉处理模块集中维护渲染和端点策略；参数不包含页码或固定坐标特例。
 TEXT_ROW_TOLERANCE_POINTS = 3.0
 VISUAL_REGION_DPI = 200
 COMPOSITE_IMAGE_DPI = 200
@@ -154,8 +153,6 @@ def apply_stage_e_f_to_visual_outputs(
             if text_id in page_inventory.entries
             and page_inventory.entry(text_id)["kind"] == "text"
         ]
-        #@GPT 视觉自身内容受proposed_bbox约束；已确认的复合成员在其后独立并入截图边界。
-        #@GPT 视觉自身的feature与阶段F文字仍受原提议边界约束；成员表格bbox在此后单独并入，因此不会借正文扩张制造组合，也不会使用其他Claim的drawing重算边界。
         visual_owned_content_rects = [owned_feature_bbox]
         visual_owned_content_rects.extend(
             fitz.Rect(line["bbox"])
@@ -167,7 +164,6 @@ def apply_stage_e_f_to_visual_outputs(
         if visual_owned_content_bbox.is_empty:
             visual_owned_content_bbox = owned_feature_bbox
 
-        #@GPT 复合表格仍由自己的table Claim独占图元；这里只在输出层把已确认成员的bbox并入同一张视觉PNG，不改变owner_by_element_id。
         composite_member_table_rects = [
             fitz.Rect(bbox).normalize()
             for bbox in record.get(
@@ -175,7 +171,6 @@ def apply_stage_e_f_to_visual_outputs(
             )
             if not fitz.Rect(bbox).normalize().is_empty
         ]
-        #@GPT 并列visual成员没有表格覆盖关系时，renderer截图需要显式并入成员content bbox。
         composite_member_visual_rects = [
             fitz.Rect(bbox).normalize()
             for bbox in record.get(
@@ -232,7 +227,6 @@ def apply_stage_e_f_to_visual_outputs(
             else image_markdown
         )
         sort_source_bbox = fitz.Rect(owned_feature_bbox)
-        #@GPT 组合输出只用renderer自身owned bbox排序，复合成员并集仅用于截图边界。
         sort_bbox = (
             build_top_sort_bbox(sort_source_bbox)
             if ordered_native_text_lines
@@ -276,7 +270,6 @@ def apply_stage_e_f_to_visual_outputs(
             for value in owned_feature_bbox
         ]
         record["stage_f_text_element_ids"] = assigned_text_ids
-        #@GPT 审计同时保留视觉自身边界和复合成员并集；可直接确认PNG扩大来自成员表格，而不是正文文字或他人drawing。
         record["stage_e_visual_owned_content_bbox"] = [
             round(value, 3)
             for value in visual_owned_content_bbox
@@ -323,7 +316,6 @@ def apply_stage_e_f_to_visual_outputs(
         "applied": True,
         "rerendered_visual_region_count": rerendered_count,
         "rerender_seconds": round(rerender_seconds, 6),
-        #@GPT 审计结果只写数量，fitz.Rect对象不进入JSON；真实去重范围由调用点从已更新record重建。
         "assigned_text_rect_count": len(final_text_rects),
     }
 
@@ -331,10 +323,8 @@ def apply_stage_e_f_to_visual_outputs(
 
 def apply_stage_e_to_source_outputs(
     page: fitz.Page,
-    #@GPT 台账用于从阶段F文字ID精确反查bbox和payload，不通过最终截图bbox猜测文字归属。
     page_inventory: PageInventory,
     resolution: dict,
-    #@GPT 阶段F结果明确区分source Claim真正拥有的端点文字。
     stage_f_preview: dict,
     source_records: list[dict],
     source_markdown_elements: list[dict],
@@ -373,7 +363,6 @@ def apply_stage_e_to_source_outputs(
         if owned_survival_feature_bbox.is_empty:
             continue
 
-        #@GPT 存活由原始image feature确认；渲染边界使用本Claim赢得的全部非文字ID，使overlay影响边界但不能单独维持候选。
         won_structural_element_ids = [
             element_id
             for element_id in candidate.get("won_element_ids", [])
@@ -406,7 +395,6 @@ def apply_stage_e_to_source_outputs(
                 owned_structural_bbox,
             )
         ).normalize()
-        #@GPT 最终内容边界合并阶段D结构图元和阶段F文字，并裁剪到检测器提议范围。
         render_content_bbox = union_rects(
             [
                 owned_structural_bbox,
@@ -425,7 +413,6 @@ def apply_stage_e_to_source_outputs(
             or render_content_bbox
         ).normalize()
         mode = record.get("mode", "")
-        #@GPT 边界变化比较使用结构与阶段F文字的最终内容范围。
         bbox_changed = any(
             abs(float(left) - float(right)) > 0.01
             for left, right in zip(old_bbox, render_content_bbox)
@@ -436,7 +423,6 @@ def apply_stage_e_to_source_outputs(
         )
         output_path = Path(record["output_path"])
         if should_rerender:
-            #@GPT 重渲染使用包含阶段F文字的一次性最终范围。
             render_bbox = padded_image_clip(
                 render_content_bbox,
                 page.rect,
@@ -471,7 +457,6 @@ def apply_stage_e_to_source_outputs(
         else:
             render_bbox = old_bbox
 
-        #@GPT render_bbox可因端点文字向外扩张，但排序仍锚定原始图片本体顶部，避免外侧编号把图片提前到上一段正文之前。
         source_sort_bbox = union_rects(
             [
                 fitz.Rect(bbox)
@@ -567,7 +552,6 @@ def annotate_inventory_labels(
     drawing_payloads = [
         inventory.payload_of(element_id) for element_id in drawing_ids
     ]
-    #@GPT 端点标记索引一次建立、全页复用，避免逐对象重复扫描。
     marker_grid = build_endpoint_marker_grid(drawing_payloads)
 
     for local_index, element_id in enumerate(drawing_ids):
@@ -580,7 +564,6 @@ def annotate_inventory_labels(
         is_filled_bar = drawing_is_filled_horizontal_bar(drawing)
         is_long_stroke = drawing_is_long_horizontal_single_line(drawing)
 
-        #@GPT 端点复核只对“可能是连接件”的对象执行，避免对全部矢量做邻域搜索。
         has_marker = False
         if is_filled_bar or is_long_stroke:
             has_marker = drawing_has_endpoint_marker(
@@ -591,34 +574,27 @@ def annotate_inventory_labels(
             )
 
         entry["labels"] = {
-            #@GPT 退化对象：宽高同时为0，现有流程在候选提取阶段直接跳过。
             "degenerate": (
                 drawing_bbox.width <= 0 and drawing_bbox.height <= 0
             ),
-            #@GPT 整页背景：面积占比达到MAX_BACKGROUND_AREA_PAGE_RATIO。
             "background": (
                 page_area > 0
                 and drawing_area / page_area
                 >= MAX_BACKGROUND_AREA_PAGE_RATIO
             ),
-            #@GPT P5性能优化：闭合视觉容器检测会重复判断同一drawing是否为白色不可见描边；该判断只依赖drawing自身，阶段B计算一次后供后续规则复用。
             "visible_semantic_stroke": drawing_has_visible_semantic_stroke(
                 drawing
             ),
-            #@GPT P5性能优化：视觉候选阶段和闭合容器阶段都需要排除整页描边框；缓存同一局部判据，避免密集页重复扫描drawing items。
             "page_enclosing_stroke_frame": drawing_is_page_enclosing_stroke_frame(
                 drawing=drawing,
                 page_rect=page_rect,
             ),
-            #@GPT 规则线方向：h/v，非轴对齐细线为None。用于表格结构和框架识别。
             "axis_rule_orientation": (
                 axis_rule["orientation"] if axis_rule else None
             ),
             "filled_horizontal_bar": is_filled_bar,
             "long_horizontal_stroke": is_long_stroke,
-            #@GPT 端点带紧凑矢头/端帽：说明它更可能是指引线而非分隔条。
             "endpoint_marker": has_marker,
-            #@GPT 单路径类型，供阶段C区分“单线段/单矩形”与复杂路径。
             "single_path_item": (
                 drawing.get("items", [{}])[0][0]
                 if len(drawing.get("items", [])) == 1
@@ -627,7 +603,6 @@ def annotate_inventory_labels(
             "item_count": len(drawing.get("items", [])),
             "filled": drawing.get("fill") is not None,
             "stroke_type": drawing.get("type"),
-            #@GPT 复用图片尺寸门限，用于判断该矢量单体是否足以构成可见内容。
             "passes_size_filter": image_is_large_enough(
                 drawing_bbox,
                 page_rect,
@@ -654,10 +629,8 @@ def annotate_inventory_labels(
         line = entry["payload"]
         normalized_text = "".join(line.get("text", "").split())
         entry["labels"] = {
-            #@GPT 文字方向沿用现有量化结果，供阶段D按方向分组归属。
             "angle": line.get("angle", 0),
             "character_count": len(normalized_text),
-            #@GPT 独立公式编号是高置信锚点，此处只做纯局部正则识别，不做聚类。
             "equation_number": bool(
                 EQUATION_NUMBER_PATTERN.fullmatch(
                     line.get("text", "").strip()
@@ -670,14 +643,11 @@ def annotate_inventory_labels(
 def collect_page_overlay_rects(
     page: fitz.Page,
     text_lines: list[dict],
-    #@GPT 图片叠加判定消费页面级drawing缓存和台账，保持图元身份可追踪。
     drawings: list[dict],
     page_inventory: PageInventory,
 ) -> dict[str, list[dict]]:
     """收集可能叠加在原始图片上的文字、矢量对象、批注和表单。"""
-    #@GPT 原图叠加分析复用main()提供的页面drawing缓存。
     page_drawings = drawings
-    #@GPT overlay记录携带父drawing稳定ID；只有候选冲突时才惰性展开原子路径。
     drawing_overlays = [
         {
             "bbox": fitz.Rect(drawing["rect"]),
@@ -688,7 +658,6 @@ def collect_page_overlay_rects(
         }
         for drawing in page_drawings
         if rect_area(fitz.Rect(drawing["rect"])) > 0
-        #@GPT 与视觉候选使用同一整页描边框过滤；否则原图复合截图仍会把出血框作为overlay扩张到整页。
         and not drawing_is_page_enclosing_stroke_frame(
             drawing=drawing,
             page_rect=page.rect,
@@ -732,13 +701,10 @@ def process_page_source_images(
     page_dict: dict,
     text_lines: list[dict],
     excluded_table_rects: list[fitz.Rect],
-    #@GPT 矢量视觉区域会接管其中的小图片和混合图片，新增排除区域避免重复输出。
     excluded_visual_region_rects: list[fitz.Rect],
-    #@GPT 页眉/页尾带在图片判定前应用，已确认重复的装饰图不再进入原图复制或复合截图流程。
     excluded_header_footer_rects: list[fitz.Rect],
     page_number: int,
     images_dir: Path,
-    #@GPT 原图阶段复用阶段A的drawing、图片和台账缓存，避免重复提取和身份漂移。
     drawings: list[dict],
     source_images: list[dict],
     page_inventory: PageInventory,
@@ -751,7 +717,6 @@ def process_page_source_images(
     - 已被大表格截图覆盖的图片只记录，不重复嵌入 Markdown。
     """
     started = time.perf_counter()
-    #@GPT 原图列表直接使用阶段A缓存，不再遍历page_dict重复提取。
     overlay_rects = collect_page_overlay_rects(
         page,
         text_lines,
@@ -765,7 +730,6 @@ def process_page_source_images(
 
     for image_index, image in enumerate(source_images):
         image_rect = image["bbox"]
-        #@GPT 已确认的页眉/页尾区域在图片判定前排除，避免重复装饰进入正文输出。
         covered_by_header_footer = rect_is_mostly_inside_any(
             rect=image_rect,
             container_rects=excluded_header_footer_rects,
@@ -777,14 +741,12 @@ def process_page_source_images(
             table_rect.contains(rect_center(image_rect))
             for table_rect in excluded_table_rects
         )
-        #@GPT 视觉区域的优先级高于独立图片；图片中心落入区域时只保留归属记录。
         covered_by_visual_region = any(
             region_rect.contains(rect_center(image_rect))
             for region_rect in excluded_visual_region_rects
         )
         large_enough = image_is_large_enough(image_rect, page.rect)
 
-        #@GPT 覆盖模式在尺寸过滤前判定，使被表格或视觉区域接管的小图片仍保留可审计原因。
         if (
             covered_by_header_footer
             or covered_by_table
@@ -819,13 +781,11 @@ def process_page_source_images(
                     "source_height": image["source_height"],
                     "output_width": None,
                     "output_height": None,
-                    #@GPT source_index属于page_dict block编号；声明始终保存由原对象反查得到的台账图片ID。
                     "source_element_ids": page_inventory.ids_for_payloads(
                         [image],
                         "image",
                     ),
                     "overlay_element_ids": [],
-                    #@GPT 过滤图片没有输出原子，但仍保持外连矢量/端点文字字段结构一致，便于报告按统一schema读取。
                     "external_connector_drawing_element_ids": [],
                     "endpoint_text_element_ids": [],
                 }
@@ -867,7 +827,6 @@ def process_page_source_images(
         reasons: list[str] = []
         composite_rects = [image["bbox"] for image in group_images]
         overlay_element_ids: list[str] = []
-        #@GPT 外连矢量和端点文字单独记录；它们既用于截图边界，也作为阶段C/F可审计的稳定ID关系。
         external_connector_drawing_element_ids: list[str] = []
         endpoint_text_element_ids: list[str] = []
         endpoint_promoted_text_lines: list[dict] = []
@@ -897,8 +856,6 @@ def process_page_source_images(
                     if item.get("element_id") is not None
                 )
 
-        #@GPT 除面积重叠外，恰好一端伸出图片的零面积引线也可触发复合渲染。
-        #@GPT 新路径从原始source_rect出发检查真实路径穿越，只做一次端点文字附着；后续不使用扩张后的bbox再次搜索，避免递归吞入附近正文。
         attached_overlay_text_lines = [
             page_inventory.payload_of(element_id)
             for element_id in set(overlay_element_ids)
@@ -1012,7 +969,6 @@ def process_page_source_images(
 
         processing_seconds = time.perf_counter() - decision_started
         relative_path = f"source_images/{output_name}"
-        #@GPT 图片元素同时保存完整渲染框和顶部排序锚点，使截图扩张不改变阅读顺序锚点。
         render_bbox = fitz.Rect(output_bbox)
         sort_bbox = build_top_sort_bbox(render_bbox)
         markdown_elements.append(
@@ -1021,7 +977,6 @@ def process_page_source_images(
                 "bbox": render_bbox,
                 "render_bbox": render_bbox,
                 "sort_bbox": sort_bbox,
-                #@GPT 原 PDF 图片作为虚拟0°页面元素进入现有坐标重排，而不是集中堆在页首；排序实际使用sort_bbox。
                 "text": (
                     f"![Page {page_number} Source Image {output_number}]"
                     f"({relative_path})"
@@ -1052,7 +1007,6 @@ def process_page_source_images(
                 "output_bbox": [
                     round(value, 3) for value in output_bbox
                 ],
-                #@GPT 报告显式保存render_bbox和sort_bbox；output_bbox作为公开清单字段继续提供。
                 "render_bbox": [
                     round(value, 3) for value in render_bbox
                 ],
@@ -1065,7 +1019,6 @@ def process_page_source_images(
                 "output_width": output_width,
                 "output_height": output_height,
                 "processing_seconds": round(processing_seconds, 6),
-                #@GPT 每个复合/直拷候选保留原图ID和实际命中的叠加图元ID，后续清单不再从output_bbox反查。
                 "source_element_ids": page_inventory.ids_for_payloads(
                     group_images,
                     "image",
@@ -1086,10 +1039,7 @@ def process_page_source_images(
         key=lambda item: (item["bbox"].y0, item["bbox"].x0)
     )
 
-    #@GPT 阶段C：收集原图处理消费的图元ID
     claims: list[dict] = []
-    #@GPT page_inventory已成为必需参数；阶段C原图Claim无条件建立，不再保留空台账分支。
-    #@GPT 阶段D通过实际输出路径把原图记录和Markdown原子绑定到同一claim_id；过滤图片记录没有输出路径，但仍保留声明用于审计。
     markdown_element_by_output_path = {
         str(element["output_path"]): element
         for element in markdown_elements
@@ -1107,7 +1057,6 @@ def process_page_source_images(
             )
             if markdown_element is not None:
                 markdown_element["claim_id"] = claim_id
-        #@GPT source元素ID来自页面台账，过滤记录也保留声明以审计表格、视觉区域和独立图片冲突。
         source_element_ids = list(
             record.get("source_element_ids", [])
         )
@@ -1119,7 +1068,6 @@ def process_page_source_images(
                 overlay_element_ids
             )
         )
-        #@GPT 【生存/边界契约分离】原始image ID是source Claim唯一生存feature；获胜overlay只在阶段E扩张render_bbox，不能单独维持候选存活。
         source_survival_feature_ids = source_element_ids
         record_bbox_values = (
             record.get("output_bbox")
@@ -1146,7 +1094,6 @@ def process_page_source_images(
             output_element_id=claim_id,
             input_element_ids=claimed_ids,
             claimed_element_ids=claimed_ids,
-            #@GPT 原始image必须由本Claim赢得；连接矢量属于claimed结构但不是生存feature，避免被视觉区域接管的图片靠残余线条继续输出。
             feature_element_ids=source_survival_feature_ids,
             bbox=fitz.Rect(record_bbox_values),
             confidence=confidence,
@@ -1290,7 +1237,6 @@ def filled_bars_are_collinear_neighbors(
     elif second_rect.x1 <= first_rect.x0:
         horizontal_gap = first_rect.x0 - second_rect.x1
     else:
-        #@GPT 两个矩形发生水平覆盖时不是“首尾相接切片”，不能用该规则替代端点证据判断。
         return False
 
     return horizontal_gap <= tolerance
@@ -1328,7 +1274,6 @@ def drawing_can_mark_line_endpoint(drawing: dict) -> bool:
 
     endpoints = drawing_single_line_endpoints(drawing)
 
-    #@GPT 一条较长的水平线不能为另一条水平线作“矢头”，防止多条目录色条互相保护。
     if endpoints is not None:
         first, second = endpoints
         delta_x = abs(second.x - first.x)
@@ -1412,7 +1357,6 @@ def drawing_has_endpoint_marker(
                 continue
 
             neighbor_drawing = drawings[neighbor_index]
-            #@GPT 同Y首尾相接的细矩形不能互相保护；这正是PDF把“图26”一条下划线拆成两个蓝色填充矩形的情况。
             if filled_bars_are_collinear_neighbors(
                 first_drawing=connector_drawing,
                 second_drawing=neighbor_drawing,
@@ -1450,7 +1394,6 @@ def drawing_is_page_enclosing_stroke_frame(
     if stroke_width > 1.0:
         return False
 
-    #@GPT 允许少量浮点误差和出血延伸；两条边都必须覆盖页面主体，避免误伤普通横线或局部框。
     width_coverage = (
         max(
             0.0,
@@ -1480,19 +1423,14 @@ def process_page_visual_regions(
     page_dict: dict,
     text_lines: list[dict],
     all_table_rects: list[fitz.Rect],
-    #@GPT 页眉/页尾排除带由文档级模板先验生成，并在矢量候选提取前生效。
     excluded_header_footer_rects: list[fitz.Rect],
     page_number: int,
     regions_dir: Path,
-    #@GPT 2026-08-15：包装层同步要求阶段B逻辑横线，防止签名允许None而下游只接受列表。
     logical_horizontal_rules: list[dict],
-    #@GPT 视觉输出包装层沿用页面级drawing、原图和台账缓存。
     drawings: list[dict],
     source_images: list[dict],
     page_inventory: PageInventory,
-    #@GPT 视觉输出与粗区域检测共用页面轴向索引，封闭框边界由阶段B一次性分类结果提供。
     axis_geometry_index: dict,
-    #@GPT 父表格骨架在视觉掩码前按ID剔除；与all_table_rects整块挖空不同，单元格内部子视觉仍会形成候选。
     excluded_drawing_element_ids: set[str] | None = None,
 ) -> tuple[
     list[dict],
@@ -1552,7 +1490,6 @@ def process_page_visual_regions(
         ),
         rect_is_mostly_inside_any=rect_is_mostly_inside_any,
     )
-    #@GPT visual_assets.render_visual_regions统一生成截图、输出记录、Markdown原子和Claim；本函数负责编排和总耗时。
     (
         records,
         markdown_elements,
@@ -1573,7 +1510,6 @@ def process_page_visual_regions(
         create_claim_manifest=create_claim_manifest,
     )
 
-    #@GPT 视觉区域的渲染、Markdown原子、记录字段和Claim由render_visual_regions统一生成。
     return (
         records,
         markdown_elements,

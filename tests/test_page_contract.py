@@ -29,11 +29,9 @@ class PageContractTests(unittest.TestCase):
         context.page_record = {"page_number": 1}
         return context
 
-    #@GPT 正常完成态不应产生契约警告，作为后续跨阶段逻辑改动的基线。
     def test_valid_completed_page_has_no_warnings(self) -> None:
         self.assertEqual(validate_page_context(self._context()), [])
 
-    #@GPT 检查Claim引用和表格索引两类最容易在阶段迁移中失配的关系。
     def test_invalid_cross_stage_references_are_reported(self) -> None:
         context = self._context()
         context.table_markdown_elements = [{"claim_id": "table#missing"}]
@@ -47,7 +45,6 @@ class PageContractTests(unittest.TestCase):
         )
         self.assertIn("table_ownership.table_index_out_of_range", warnings)
 
-    #@GPT 阶段顺序错误应在debug提交边界被发现，避免后续算法修改只表现为某一页输出异常。
     def test_stage_history_mismatch_is_reported(self) -> None:
         context = self._context()
         context.stage_history = list(EXPECTED_PAGE_STAGE_HISTORY[:-1])
@@ -57,14 +54,12 @@ class PageContractTests(unittest.TestCase):
             validate_page_context(context),
         )
 
-    #@GPT 完整阶段台账是页面流水线的正常契约，作为未来拆分阶段函数时的回归基线。
     def test_complete_stage_history_has_no_warning(self) -> None:
         context = self._context()
         context.stage_history = list(EXPECTED_PAGE_STAGE_HISTORY)
 
         self.assertEqual(validate_page_context(context), [])
 
-    #@GPT Claim引用完整性检查覆盖台账缺失、feature越界和未知owner三类跨阶段错误。
     def test_claim_reference_integrity_is_reported(self) -> None:
         context = self._context()
         context.page_inventory = SimpleNamespace(
@@ -110,7 +105,6 @@ class PageContractTests(unittest.TestCase):
             warnings,
         )
 
-    #@GPT 输出边界检查允许零高度分隔符，同时拦截反向bbox、缺字段和越出页面的截图区域。
     def test_output_boundary_contract_is_reported(self) -> None:
         context = self._context()
         context.table_markdown_elements = [
@@ -139,7 +133,6 @@ class PageContractTests(unittest.TestCase):
             warnings,
         )
 
-    #@GPT 完整输出原子边界作为正常契约基线，避免后续新增字段后把合法页面误报为异常。
     def test_valid_output_boundary_contract_has_no_warning(self) -> None:
         context = self._context()
         context.visual_region_markdown_elements = [
@@ -152,7 +145,6 @@ class PageContractTests(unittest.TestCase):
 
         self.assertEqual(validate_page_context(context), [])
 
-    #@GPT 输出文件契约检查缺失文件、重复活跃路径以及Markdown原子找不到对应provenance记录的情况。
     def test_output_artifact_contract_is_reported(self) -> None:
         context = self._context()
         missing_path = Path("/tmp/nonexistent-page-contract-image.png")
@@ -192,7 +184,6 @@ class PageContractTests(unittest.TestCase):
             warnings,
         )
 
-    #@GPT 已落盘且同时存在Claim和provenance记录的图片原子不应产生文件关联警告。
     def test_valid_output_artifact_contract_has_no_warning(self) -> None:
         with TemporaryDirectory() as directory:
             output_path = Path(directory) / "image.png"

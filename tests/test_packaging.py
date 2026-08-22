@@ -45,7 +45,6 @@ class PackagingMetadataTests(unittest.TestCase):
         self.assertIn("opencv-python-headless", requirements)
         self.assertNotRegex(requirements, r"(?m)^opencv-python==")
 
-    #@GPT 发布包必须声明项目自身Apache-2.0许可证，并同时保留GapTree MIT文本和第三方边界说明；否则源码仓库与wheel会表达不同的授权范围。
     def test_license_metadata_and_notice_files_are_complete(self) -> None:
         pyproject = tomllib.loads(
             (PROJECT_DIR / "pyproject.toml").read_text(encoding="utf-8")
@@ -84,7 +83,6 @@ class PackagingMetadataTests(unittest.TestCase):
         self.assertIn("docs/assets/examples/", notices)
         self.assertIn("MIT License", gap_tree_license)
 
-    #@GPT 新增模块必须随nativePDF_structurer包进入发行物；否则本地源码测试通过、用户安装wheel后会在运行时缺模块。
     def test_runtime_module_package_and_ci_contract_exist(self) -> None:
         pyproject = tomllib.loads(
             (PROJECT_DIR / "pyproject.toml").read_text(encoding="utf-8")
@@ -125,7 +123,6 @@ class PackagingMetadataTests(unittest.TestCase):
         self.assertIn("python -m unittest discover -s tests -v", workflow)
         self.assertIn("pip install --no-deps -e .", workflow)
 
-    #@GPT 包原生入口完成后，历史核心和bridge不得再次进入源码根目录或wheel配置。
     def test_historical_core_and_bridge_are_absent(self) -> None:
         self.assertFalse((PROJECT_DIR / "stage_c_claims_full.py").exists())
         self.assertFalse(

@@ -20,7 +20,6 @@ from pathlib import Path
 def _expand_page_spec(spec: str) -> tuple[int, ...]:
     """Expand ``1-3,8`` into sorted, unique one-based PDF page numbers."""
 
-    #@GPT 将页码解析集中在配置层，避免解析引擎继续承担命令行字符串校验。
     pages: set[int] = set()
     for token in spec.split(","):
         token = token.strip()
@@ -62,12 +61,10 @@ class RunConfig:
     enable_table_header_detection: bool = False
     keep_header_text: bool = False
     enable_formula_detection: bool = True
-    #@GPT 文档级标题和纯文本表格策略纳入公共配置，并保持保守的默认输出行为。
     enable_pdf_outline_heading_assignment: bool = True
     force_pure_text_table_to_markdown: bool = False
 
     def __post_init__(self) -> None:
-        #@GPT 在打开PDF前完成路径和页码校验，使配置错误尽早暴露并与解析逻辑分离。
         source = Path(self.source_pdf).expanduser()
         output = Path(self.output_dir).expanduser()
         if not source.is_file():
@@ -105,7 +102,6 @@ class RunConfig:
         )
 
 
-#@GPT 解析核心通过不可变运行上下文接收已校验配置和最终页码，不改变检测阈值或输出策略。
 @dataclass(frozen=True)
 class ParseRunContext:
     """Carry validated options into one parser-core invocation.
@@ -134,7 +130,6 @@ class ParseRunContext:
     page_numbers: tuple[int, ...]
 
     def __post_init__(self) -> None:
-        #@GPT 在进入核心前再次固定页号为排序去重后的不可变元组，防止桥接层或测试调用方把可变列表泄漏到解析过程中。
         normalized = tuple(sorted(set(self.page_numbers)))
         if any(page <= 0 for page in normalized):
             raise ValueError("page numbers must be positive")

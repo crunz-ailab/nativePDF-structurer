@@ -23,7 +23,6 @@ from .geometry import AxisRect
 from .inventory import PageInventory
 
 
-#@GPT 轴向矩形只保存规范化标量，避免密集矢量页为每个路径片段创建PyMuPDF Rect对象。
 def make_normalized_axis_rect(
     x0: float,
     y0: float,
@@ -39,7 +38,6 @@ def make_normalized_axis_rect(
     )
 
 
-#@GPT 一个PDF路径item可产生一个轴向片段，普通矩形则拆成共享同一原始drawing ID的四条边。
 def drawing_item_axis_segments(
     item: tuple,
     element_id: str,
@@ -162,7 +160,6 @@ def drawing_item_axis_segments(
     ]
 
 
-#@GPT 逻辑线只保存源片段并集和稳定drawing ID；它是结构视图，不制造新的可归属PDF图元。
 def build_logical_axis_rule(
     segments: list[dict],
     orientation: str,
@@ -209,7 +206,6 @@ def build_logical_axis_rule(
     }
 
 
-#@GPT 共线合并只消除同坐标的PDF拆片和坐标精度噪声，不使用表格连接或视觉闭运算距离。
 def merge_exact_collinear_axis_segments(
     segments: list[dict],
     orientation: str,
@@ -290,7 +286,6 @@ def merge_exact_collinear_axis_segments(
     )
 
 
-#@GPT 页面轴向索引只进行局部分类和反向登记；候选归属仍由下游检测器和Claim台账完成。
 def build_axis_geometry_index(
     drawings: list[dict],
     page_rect: fitz.Rect,
@@ -382,7 +377,6 @@ def rule_element_ids(rule: dict) -> set[str]:
     return {element_id} if element_id is not None else set()
 
 
-#@GPT 兼容审计继续记录多片段逻辑横线、宽度门槛和原始drawing ID；页码只进入报告，不参与几何判断。
 def logical_horizontal_rules_from_axis_index(
     axis_geometry_index: dict,
     page_rect: fitz.Rect,

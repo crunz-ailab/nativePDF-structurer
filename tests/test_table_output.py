@@ -12,7 +12,6 @@ from nativePDF_structurer.table_output import (
     normalize_table_shape,
     rotate_table_data,
     table_to_markdown,
-    #@GPT Pyflakes确认以下两个输出helper未在本测试文件中使用；保留名称注释便于恢复专项覆盖。
     # save_rotated_table_image,
     # write_table_csv,
 )
@@ -53,14 +52,12 @@ def candidate_fixture(**overrides):
 
 
 class TableOutputTests(unittest.TestCase):
-    #@GPT 序列化辅助函数迁移后仍保留UTF-8 BOM和Markdown网格语义。
     def test_table_serializers_are_owned_by_table_output(self):
         self.assertEqual(
             table_to_markdown([["a|b", "line\nnext"]]),
             "| a\\|b | line<br>next |\n| --- | --- |",
         )
 
-    #@GPT 不等长行先补齐；旋转辅助函数迁移后仍保持原有矩阵形状契约。
     def test_table_shape_and_rotation_helpers(self):
         self.assertEqual(
             normalize_table_shape([["a"], ["b", "c"]]),
@@ -75,7 +72,6 @@ class TableOutputTests(unittest.TestCase):
             [["b", "d"], ["a", "c"]],
         )
 
-    #@GPT 主方向统计按字符数加权；显式策略参数替代核心隐式常量。
     def test_infers_dominant_table_rotation(self):
         result = infer_table_rotation(
             [
@@ -101,7 +97,6 @@ class TableOutputTests(unittest.TestCase):
             "save_rotated_table_image": lambda **_: (100, 50),
         }
 
-    #@GPT 被视觉区域认领的表格只生成审计记录，不写CSV、Markdown或截图。
     def test_claimed_table_emits_record_only(self):
         csv_calls = []
         result = emit_table_candidate(
@@ -114,7 +109,6 @@ class TableOutputTests(unittest.TestCase):
         self.assertFalse(result["embedded"])
         self.assertTrue(result["record"]["claimed_by_visual_region"])
 
-    #@GPT 小型未输出表格仍保留CSV导出，但不生成独立Markdown原子。
     def test_small_table_keeps_csv_without_markdown(self):
         csv_calls = []
         result = emit_table_candidate(
@@ -126,7 +120,6 @@ class TableOutputTests(unittest.TestCase):
         self.assertIsNone(result["markdown_element"])
         self.assertFalse(result["record"]["emitted"])
 
-    #@GPT 截图表格使用实际clip渲染PNG，同时保持检测bbox作为排序锚点。
     def test_rendered_table_builds_png_markdown(self):
         class Page:
             rect = fitz.Rect(0, 0, 100, 100)
@@ -155,7 +148,6 @@ class TableOutputTests(unittest.TestCase):
         self.assertEqual(result["markdown_element"]["mode"], "rendered_table")
         self.assertIsNotNone(result["record"]["image_path"])
 
-    #@GPT 强制纯文本表格输出CSV和Markdown，但不生成PNG。
     def test_forced_markdown_table(self):
         result = emit_table_candidate(
             candidate=candidate_fixture(

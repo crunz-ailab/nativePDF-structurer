@@ -14,7 +14,6 @@ from nativePDF_structurer.outline_headings import (
 
 
 class OutlineHeadingTests(unittest.TestCase):
-    #@GPT 规范化只折叠空白/全角字符并剥离结构编号，不进行模糊相似度匹配。
     def test_strict_normalization_and_prefix_removal(self) -> None:
         self.assertEqual(normalize_heading_match_text("１．２ 产品 概述"), "1.2产品概述")
         self.assertEqual(strip_heading_number_prefix("1.2产品概述"), "产品概述")
@@ -22,7 +21,6 @@ class OutlineHeadingTests(unittest.TestCase):
         self.assertTrue(outline_text_matches("产品概述", entry))
         self.assertFalse(outline_text_matches("产品概况", entry))
 
-    #@GPT 同一PDF文本块内的连续两行可以组成一个严格匹配的书签标题，且leader承载整个组。
     def test_assigns_multiline_outline_text_group(self) -> None:
         first = {"text": "下载固件", "bbox": fitz.Rect(10, 10, 60, 20), "block_index": 1, "block_line_index": 0}
         second = {"text": "和其他文件", "bbox": fitz.Rect(10, 21, 70, 31), "block_index": 1, "block_line_index": 1}
@@ -38,7 +36,6 @@ class OutlineHeadingTests(unittest.TestCase):
         self.assertEqual(match["lines"], [first, second])
         self.assertEqual(match["combined_text"], "下载固件 和其他文件")
 
-    #@GPT 同名标题重复出现时，几何书签分配必须选择离目标点最近的文本行。
     def test_assigns_duplicate_title_nearest_target(self) -> None:
         upper = {"text": "设置", "bbox": fitz.Rect(10, 10, 40, 20), "block_index": 1, "block_line_index": 0}
         lower = {"text": "设置", "bbox": fitz.Rect(10, 100, 40, 110), "block_index": 2, "block_line_index": 0}

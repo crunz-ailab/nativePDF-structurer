@@ -2,7 +2,6 @@ name: nativePDF-structurer
 channels:
   - conda-forge
 dependencies:
-  #@GPT Python 3.12 is the validated runtime; pip installs the exact reference packages without modifying an existing environment.
   - python=3.12
   - pip
   - pip:

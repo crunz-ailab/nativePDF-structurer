@@ -62,7 +62,6 @@ class ArtifactEmitterTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 emitter.write_json("/tmp/sample.json", {})
 
-    #@GPT ParseResult 接管持久输出后，需要锁定高层 Markdown 入口仍复用原有字节格式，而不是在 main() 中重新实现连接规则。
     def test_parse_result_markdown_uses_owned_sections(self) -> None:
         """Ensure the result-driven entry preserves Markdown byte output."""
 
@@ -77,7 +76,6 @@ class ArtifactEmitterTests(unittest.TestCase):
                 "第一页\n\n第二页\n".encode("utf-8"),
             )
 
-    #@GPT 调试输出字段映射集中后，用不同哨兵值覆盖每个 ParseResult 字段，防止未来新增或重命名字段时静默写错文件。
     def test_parse_result_debug_json_uses_stable_field_mapping(self) -> None:
         """Write every result-owned debug payload to its public filename."""
 

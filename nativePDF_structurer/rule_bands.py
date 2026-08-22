@@ -21,8 +21,6 @@ from .geometry import rect_area, rect_center
 from .inventory import PageInventory
 
 
-#@GPT 视觉框架检测只消费已恢复的逻辑横线，不重新扫描drawing，也不执行OCR。
-#@GPT 横线分组、Y位置去重和drawing ID读取由调用方注入，保持表格、视觉与说明带共用同一套策略。
 def detect_rule_line_framework_bbox(
     region_bbox: fitz.Rect,
     drawings: list[dict],

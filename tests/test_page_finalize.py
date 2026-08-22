@@ -9,7 +9,6 @@ from nativePDF_structurer.page_finalize import finalize_page_context
 
 
 class PageFinalizeTests(unittest.TestCase):
-    #@GPT 使用空候选页面验证最终record和Markdown section的公共契约，不依赖PDF解析器即可捕获字段遗漏。
     def test_finalize_builds_page_record_and_markdown_section(self) -> None:
         context = PageRunContext(
             page_index=0,

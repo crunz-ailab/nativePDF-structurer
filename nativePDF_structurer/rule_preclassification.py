@@ -25,15 +25,12 @@ import fitz
 from .geometry import rect_area, rect_center
 from .inventory import PageInventory
 
-#@GPT 双水平规则带预分类在表格检测前运行；本模块只路由已有drawing/image/text对象，不修改页面原始台账。
-#@GPT 所有几何辅助和策略阈值由调用方显式注入，使预分类与后置纯文字分隔扫描继续共享同一套规则。
 def detect_preclassified_rule_bands(
     page_rect: fitz.Rect,
     drawings: list[dict],
     text_lines: list[dict],
     source_images: list[dict],
     page_inventory: PageInventory,
-    #@GPT 预分类使用阶段B生成的逻辑横线和轴向索引，避免重复扫描drawing路径。
     logical_horizontal_rules: list[dict],
     axis_geometry_index: dict,
     *,
@@ -58,7 +55,6 @@ def detect_preclassified_rule_bands(
     rule_by_element_id: dict[str, dict] = {}
     rejected_filled_rule_count = 0
 
-    #@GPT 逻辑横线已经在阶段B完成同Y片段恢复，并携带完整原始drawing ID；预分类不再退回单drawing扫描。
     for rule in logical_horizontal_rules:
         source_ids = sorted(rule_element_ids(rule))
         source_drawings = [
@@ -67,7 +63,6 @@ def detect_preclassified_rule_bands(
             if element_id in page_inventory.entries
             and page_inventory.entry(element_id)["kind"] == "drawing"
         ]
-        #@GPT 逻辑横线可能来自填充表头矩形的上下边；只有全部源对象都是细描边线，才允许进入“双横线说明带”候选。
         if not source_drawings or not all(
             drawing_is_stroked_preclassified_horizontal_rule(
                 drawing,
@@ -100,8 +95,6 @@ def detect_preclassified_rule_bands(
             },
         }
 
-    #@GPT 表格前预分类先归一并合并竖线，再计算其对双横线带的Y覆盖率。
-    #@GPT 预分类按当前drawing ID筛选阶段B缓存的竖线，不逐对象重复调用drawing_axis_rule()。
     allowed_drawing_ids = {
         element_id
         for drawing in drawings
@@ -132,7 +125,6 @@ def detect_preclassified_rule_bands(
     connected_vertical_rejection_count = 0
     boundary_grid_rejection_count = 0
 
-    #@GPT 先建立完整横线分组台账，使每个候选都能查询其他X跨度中的同Y横线对。
     for group in horizontal_rule_groups:
         positions = unique_rule_positions(group)
         if len(positions) < 2:
@@ -156,7 +148,6 @@ def detect_preclassified_rule_bands(
             if not pair_rules:
                 continue
 
-            #@GPT 规则带边界用两条实际线的并集；判定两线属于同一带时另外计算交集跨度，避免仅因一条长页线覆盖另一条短线就接受。
             band_x0 = min(rule["rect"].x0 for rule in pair_rules)
             band_x1 = max(rule["rect"].x1 for rule in pair_rules)
             overlap_x0 = max(rule["rect"].x0 for rule in pair_rules)
@@ -182,7 +173,6 @@ def detect_preclassified_rule_bands(
             if rect_area(band_rect) <= 0:
                 continue
 
-            #@GPT 若另一跨度存在相同top/bottom和相同行距的横线对，当前候选保留给表格检测。
             if horizontal_pair_repeats_in_another_span(
                 horizontal_rule_groups=horizontal_rule_groups,
                 current_group=group,
@@ -221,7 +211,6 @@ def detect_preclassified_rule_bands(
             ]
 
             non_rule_drawings: list[dict] = []
-            #@GPT 竖线证据使用中心X、Y覆盖率和连接容差判断，以支持零宽规则线和轻微端点误差。
             has_vertical_separator = (
                 vertical_rule_connects_horizontal_pair(
                     merged_vertical_rules=merged_vertical_rules,
@@ -242,7 +231,6 @@ def detect_preclassified_rule_bands(
                 if not meaningful_overlap(band_rect, drawing_rect):
                     continue
 
-                #@GPT 带内drawing直接读取阶段B缓存的轴向标签，避免重复解析路径。
                 drawing_rule = axis_geometry_index[
                     "legacy_axis_rule_by_element_id"
                 ].get(drawing_id)
@@ -263,17 +251,13 @@ def detect_preclassified_rule_bands(
                         has_vertical_separator = True
                     continue
 
-                #@GPT 其余非规则线drawing作为复合内容证据；细小端点碎片不单独阻止纯文字分流。
                 if rect_area(drawing_rect) >= minimum_image_area_points_squared:
                     non_rule_drawings.append(drawing)
 
-            #@GPT 审计字段分别记录竖线结构反证和带内内容证据，便于解释候选为何保留给表格检测。
-            #@GPT 只处理相邻两条线之间的单带；出现贯穿或距横线端点不足1pt的竖线时保留给表格检测，避免把真实网格降级为视觉说明带。
             if has_vertical_separator:
                 connected_vertical_rejection_count += 1
                 continue
 
-            #@GPT 横线端点附近的局部竖线也可构成网格反证；命中后保留给表格或视觉检测。
             boundary_grid_evidence = (
                 horizontal_pair_has_boundary_grid_evidence(
                     merged_vertical_rules=merged_vertical_rules,
@@ -324,7 +308,6 @@ def detect_preclassified_rule_bands(
                 set(rule_ids).union(content_drawing_ids)
             )
 
-            #@GPT 预分类带成立后，带内所有drawing都归该带结构域，避免内部器件线再次进入普通视觉聚类。
             all_band_drawing_ids = [
                 drawing_id
                 for drawing in drawings
@@ -345,7 +328,6 @@ def detect_preclassified_rule_bands(
                     )
                 )
             ]
-            #@GPT 逻辑横线由多个零面积/短片段组成，几何面积判断可能无法把边界片段纳入；显式并入pair_rule_ids，保证原始drawing全部进入预分类声明和表格输入排除集。
             all_band_drawing_ids = sorted(
                 set(all_band_drawing_ids).union(pair_rule_ids)
             )
@@ -372,7 +354,6 @@ def detect_preclassified_rule_bands(
                 consumed_drawing_ids
             )
 
-    #@GPT 同一规则线只允许进入一个预分类带；按几何顺序保留先发现的候选，避免相邻带共享中间线造成重复截图。
     accepted_bands: list[dict] = []
     accepted_ids: set[str] = set()
     for band in sorted(
@@ -383,7 +364,6 @@ def detect_preclassified_rule_bands(
         ),
     ):
         band_rule_ids = set(band["rule_drawing_ids"])
-        #@GPT 纯文字分隔带允许共享中间边界线：四条横线应形成三个文字段间分隔；复合视觉带仍禁止共享规则线，避免同一条框线生成两个截图。
         if (
             band["mode"] != "text_separator"
             and band_rule_ids & accepted_ids
@@ -417,14 +397,12 @@ def detect_preclassified_rule_bands(
                 horizontal_rule_groups
             ),
             "accepted_band_count": len(accepted_bands),
-            #@GPT 记录两种结构反证的触发次数，用户无需翻看原始drawing杂项即可确认表格列没有被说明带预分类吃掉。
             "rejected_by_repeated_y_pair_count": (
                 repeated_pair_rejection_count
             ),
             "rejected_by_connected_vertical_count": (
                 connected_vertical_rejection_count
             ),
-            #@GPT 记录局部边界网格反证次数，区分“竖线贯穿候选”和“上下边界分别连接相邻结构”两类拒绝原因。
             "rejected_by_boundary_grid_count": (
                 boundary_grid_rejection_count
             ),
@@ -442,9 +420,7 @@ def detect_preclassified_rule_bands(
             "preclassified_rule_drawing_ids": sorted(
                 accepted_drawing_ids
             ),
-            #@GPT 报告记录被排除的填充矩形规则，便于核对表头是否被错误分流。
             "rejected_filled_rule_count": rejected_filled_rule_count,
-            #@GPT 逐带只保存模式、bbox和稳定ID，供页面报告快速确认“这块为何没进表格检测”，不写入原始PDF路径杂项。
             "bands": [
                 {
                     "mode": band["mode"],
@@ -471,7 +447,6 @@ def detect_preclassified_rule_bands(
         },
     }
 
-#@GPT 纯文字预分类带直接物化为Markdown分隔原子和Claim，不再由表格或视觉检测器重新解释。
 def build_preclassified_text_separator_outputs(
     page_number: int,
     bands: list[dict],

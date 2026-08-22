@@ -18,7 +18,6 @@ from dataclasses import dataclass, field
 from typing import Any
 
 
-#@GPT 文档累计指标此前由main()中的大量浮点局部变量持有；集中成独立对象后，未来process_page()只需更新一个显式依赖，不必通过十余个返回值或nonlocal变量回传。
 @dataclass
 class DocumentRunMetrics:
     table_detection_seconds: float = 0.0
@@ -42,7 +41,6 @@ class DocumentRunMetrics:
     inventory_build_seconds: float = 0.0
 
 
-#@GPT DocumentRunState只保存打开文档期间共享的运行期资源，不接管用户配置或最终ParseResult；三层所有权因此保持为ParseRunContext→DocumentRunState→PageRunContext。
 @dataclass
 class DocumentRunState:
     document: Any
@@ -57,7 +55,6 @@ class DocumentRunState:
     metrics: DocumentRunMetrics = field(default_factory=DocumentRunMetrics)
 
 
-#@GPT 页面初始化结果把本页原始对象、缓存耗时和PageRunContext一起返回；这是抽取process_page()前的第一条稳定页面输入边界。
 @dataclass
 class PageInitialization:
     page_number: int
@@ -73,7 +70,6 @@ class PageInitialization:
     page_inventory_seconds: float
 
 
-#@GPT 页眉页尾阶段只返回下游真正需要的完成态，避免主循环继续依赖模板匹配、drawing过滤和页眉文字提取的内部变量。
 @dataclass
 class PageHeaderFooterResult:
     page_drawings: list[dict[str, Any]]
@@ -85,7 +81,6 @@ class PageHeaderFooterResult:
     detection_seconds: float
 
 
-#@GPT 几何预处理结果同时承载轴向索引、逻辑横线和两段耗时；表格检测阶段只消费这个完成态，不需要重新扫描页面drawing。
 @dataclass
 class PageGeometryPreparation:
     axis_geometry_index: dict[str, Any]
@@ -95,7 +90,6 @@ class PageGeometryPreparation:
     logical_rule_seconds: float
 
 
-#@GPT 规则带预分类结果明确区分完整检测结果、下游band列表和被消费drawing ID；表格检测入口因此不再从内部metadata重复拆解这些值。
 @dataclass
 class PageRuleBandPreparation:
     rule_band_result: dict[str, Any]
@@ -105,7 +99,6 @@ class PageRuleBandPreparation:
     output_count: int
 
 
-#@GPT 表格检测入口返回检测对象、元数据、Claim和预算状态；候选构建阶段不再自行推导“是否截断大簇”等检测器内部结论。
 @dataclass
 class PageTableDetectionResult:
     detected_tables: list[Any]
@@ -118,14 +111,12 @@ class PageTableDetectionResult:
     skip_reason: str | None
 
 
-#@GPT 候选构建阶段将PyMuPDF表格转换为项目内部候选字典；返回对象记录候选列表和原始检测数量，后续Claim筛选不再接触table.extract()细节。
 @dataclass
 class PageTableCandidateBuildResult:
     candidates: list[dict[str, Any]]
     detected_table_count: int
 
 
-#@GPT 候选筛选结果保存阶段C最终存活表格、Claim索引和drawing所有权集合；视觉阶段只消费这些完成态，不再重复判断表格结构有效性。
 @dataclass
 class PageTableCandidateFinalization:
     candidates: list[dict[str, Any]]
@@ -135,7 +126,6 @@ class PageTableCandidateFinalization:
     adjacent_rule_band_attachment: dict[str, Any]
 
 
-#@GPT 视觉预聚簇保护结果分别保存完整对象决策、通用保护矩形和表格视觉空洞，供视觉检测与页面审计复用。
 @dataclass
 class PageVisualProtectionPreparation:
     object_exclusions: dict[str, Any]
@@ -143,7 +133,6 @@ class PageVisualProtectionPreparation:
     table_visual_protection_rects: list[Any]
 
 
-#@GPT 视觉检测结果包含普通视觉候选和预分类视觉带合并后的完成态，并分别保留两段耗时以维持现有页面计时口径。
 @dataclass
 class PageVisualDetectionResult:
     records: list[dict[str, Any]]
@@ -156,7 +145,6 @@ class PageVisualDetectionResult:
     embedded_child_visual_count: int
 
 
-#@GPT 输出候选提议结果保存兼容bbox审计、neutral表格decision和组合输出组；阶段D随后只处理已原子化的表格/视觉/原图候选。
 @dataclass
 class PageOutputCandidateProposal:
     table_ownership_decisions: list[dict[str, Any]]
@@ -165,7 +153,6 @@ class PageOutputCandidateProposal:
     composite_output_groups: list[dict[str, Any]]
 
 
-#@GPT 原图检测结果把记录、Markdown原子、Claim和耗时作为同一完成态返回；阶段D不再依赖包装层内部的局部变量。
 @dataclass
 class PageSourceImageDetectionResult:
     records: list[dict[str, Any]]
@@ -174,7 +161,6 @@ class PageSourceImageDetectionResult:
     detection_seconds: float
 
 
-#@GPT 阶段D结果保存唯一归属字典、组合组最终化、恢复动作和三类候选淘汰动作；阶段E/F只消费存活完成态。
 @dataclass
 class PageClaimResolutionResult:
     resolution: dict[str, Any]
@@ -184,7 +170,6 @@ class PageClaimResolutionResult:
     restored_table_screenshot_seconds: float
 
 
-#@GPT 阶段E/F结果保存最终结构边界、精确文字排除框和活动Claim集合；后续语义阶段只消费这些完成态。
 @dataclass
 class PageBoundaryOwnershipResult:
     excluded_table_rects: list[Any]
@@ -197,7 +182,6 @@ class PageBoundaryOwnershipResult:
     source_application: dict[str, Any]
 
 
-#@GPT 页面语义结果按既有顺序汇总图题、公式、分隔符和标题完成态；阅读顺序阶段只消费这些最终原子和精确排除框。
 @dataclass
 class PageSemanticProcessingResult:
     figure_caption_records: list[dict[str, Any]]
@@ -212,7 +196,6 @@ class PageSemanticProcessingResult:
     heading_seconds: float
 
 
-#@GPT 阅读顺序结果保存完整排序元数据、分方向Markdown和调试图路径；页面record阶段不再重新派生GapTree正常方向节点。
 @dataclass
 class PageReadingOrderProcessingResult:
     metadata: dict[str, Any]

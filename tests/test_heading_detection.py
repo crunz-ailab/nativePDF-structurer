@@ -1,5 +1,4 @@
 import unittest
-#@GPT 星号导入导致Pyflakes无法验证测试符号；改为显式列出实际使用的四个谓词。
 # from nativePDF_structurer.heading_detection import *
 from nativePDF_structurer.heading_detection import (
     looks_like_heading_text,

@@ -19,14 +19,12 @@ from nativePDF_structurer.table_structure import (
 
 class TableStructurePolicyTests(unittest.TestCase):
     def setUp(self) -> None:
-        #@GPT 专项测试使用与主流程相同的3pt边界容差和1pt横向骨架拼接间隙，防止测试建立另一套判据。
         self.dependencies = TableStructureDependencies(
             alignment_tolerance_points=3.0,
             skeleton_horizontal_gap_points=1.0,
             drawing_axis_rule=lambda drawing, _: drawing.get("rule"),
         )
 
-    #@GPT 近邻规则位置必须用中位数折叠，超过容差的位置仍保持独立边界。
     def test_unique_rule_positions_groups_with_tolerance(self) -> None:
         rules = [
             {"position": 0.0},
@@ -39,7 +37,6 @@ class TableStructurePolicyTests(unittest.TestCase):
             [0.5, 10.0],
         )
 
-    #@GPT 同Y且端点相距不超过1pt的横线应恢复为一条逻辑线；较远片段必须保持独立。
     def test_horizontal_skeleton_merge_respects_one_point_gap(self) -> None:
         rules = [
             {
@@ -72,7 +69,6 @@ class TableStructurePolicyTests(unittest.TestCase):
         self.assertEqual(merged[0]["element_ids"], ["d:0", "d:1"])
         self.assertEqual(merged[1]["element_ids"], ["d:2"])
 
-    #@GPT 原生cells边界既能识别对齐规则线，也会拒绝位于单元格内部、未对齐边界的设备图矩形。
     def test_container_structure_uses_cell_boundaries(self) -> None:
         table = types.SimpleNamespace(
             cells=[
@@ -85,7 +81,6 @@ class TableStructurePolicyTests(unittest.TestCase):
             ([0.0, 10.0, 20.0], [0.0, 10.0]),
         )
         boundary_line = {
-            #@GPT 严格零高度Rect与表格Rect的PyMuPDF面积交集会判空；使用真实描边常见的0.5pt bbox验证容器规则。
             # "rect": fitz.Rect(0, 0, 20, 0),
             "rect": fitz.Rect(0, 0, 20, 0.5),
             "rule": {
@@ -97,7 +92,6 @@ class TableStructurePolicyTests(unittest.TestCase):
             },
         }
         internal_box = {
-            #@GPT 3pt正好等于表格边界容差，不能作为“明确未对齐”样例；改用距四边均4pt的内部矩形。
             # "rect": fitz.Rect(3, 3, 7, 7),
             "rect": fitz.Rect(4, 4, 6, 6),
             "fill": (0.5, 0.5, 0.5),
@@ -124,7 +118,6 @@ class TableStructurePolicyTests(unittest.TestCase):
             )
         )
 
-    #@GPT 完整截图表格必须统一认领bbox内的drawing和image并登记tc容器，避免视觉/原图检测重复输出同一内容。
     def test_full_table_claim_owns_bbox_content(self) -> None:
         drawing = {
             "rect": fitz.Rect(0, 0, 20, 0),
@@ -176,7 +169,6 @@ class TableStructurePolicyTests(unittest.TestCase):
         )
         self.assertEqual(result["internal_visual_drawing_ids"], [])
 
-    #@GPT 当前置信度策略只记录局部密度审计而不改变来源分数，确保复杂矢量表格不会再次因内部图形被扣分。
     def test_confidence_refinement_preserves_source_score(self) -> None:
         claim = {"confidence": 0.85, "metadata": {}}
         candidate = {

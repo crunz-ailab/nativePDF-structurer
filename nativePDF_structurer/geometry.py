@@ -16,7 +16,6 @@ import fitz
 from typing import NamedTuple
 
 
-#@GPT 轴向索引使用轻量四元组代替大量fitz.Rect对象；集中到几何模块后，表格骨架和核心共享同一类型定义。
 class AxisRect(NamedTuple):
     x0: float
     y0: float
@@ -32,7 +31,6 @@ class AxisRect(NamedTuple):
         return self.y1 - self.y0
 
 
-#@GPT AxisRect只提供只读坐标；进入PyMuPDF API前统一通过本函数转换，避免模块自行假设normalize/contains等Rect方法。
 def as_fitz_rect(
     rect: fitz.Rect | AxisRect | tuple[float, float, float, float],
 ) -> fitz.Rect:
@@ -43,7 +41,6 @@ def as_fitz_rect(
     return fitz.Rect(rect)
 
 
-#@GPT 中心点、面积和并集是多个检测器共同使用的基础运算；集中后，后续台账模块不需要反向依赖巨型核心文件。
 def rect_center(rect: fitz.Rect) -> fitz.Point:
     """Return the center point of a rectangle."""
 
@@ -72,7 +69,6 @@ def union_rects(rects: list[fitz.Rect]) -> fitz.Rect:
     )
 
 
-#@GPT drawing item可能包含Point、Rect或Quad；该函数保持原有坐标归一化语义，供惰性drawing-item台账和未来几何检测器复用。
 def drawing_item_bbox(item: tuple) -> fitz.Rect | None:
     """Return the minimum rectangle covering a PyMuPDF drawing item."""
 

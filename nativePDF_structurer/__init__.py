@@ -10,7 +10,6 @@ and execution entry point. Detector implementations and intermediate schemas
 remain internal package details.
 """
 
-#@GPT 导出运行配置、文档级上下文、页面级上下文和执行入口，调用方无需依赖内部全局变量。
 __all__ = ["PageRunContext", "ParseRunContext", "RunConfig", "run"]
 __version__ = "0.1.0"
 

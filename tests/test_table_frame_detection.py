@@ -5,7 +5,6 @@ import unittest
 
 import fitz
 
-#@GPT 局部闭框补检已并入table_detection，测试继续覆盖同一算法入口。
 from nativePDF_structurer.table_detection import (
     detect_simple_cluster_frame_tables,
 )
@@ -13,7 +12,6 @@ from nativePDF_structurer.table_structure import TableStructureDependencies
 
 
 class TableFrameDetectionTests(unittest.TestCase):
-    #@GPT 两条水平边和两条贯穿竖分隔线且至少两列有文本时，应生成局部框补检表格；第三个空区间来自右侧几何边界，测试保留真实提取结果而不再注入假数据。
     def test_detects_local_frame_with_two_populated_columns(self) -> None:
         rules = [
             {

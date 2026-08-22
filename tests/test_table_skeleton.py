@@ -14,7 +14,6 @@ from nativePDF_structurer.table_skeleton import (
 
 
 class TableSkeletonTests(unittest.TestCase):
-    #@GPT 骨架选择测试固定helper注入、源drawing ID回填和合成line item，确保模块迁移没有改变2000预算前的结构输入。
     def test_skeleton_selection_injects_helpers_and_preserves_source_ids(self) -> None:
         drawing = {
             "rect": fitz.Rect(0, 0, 20, 20),
@@ -58,7 +57,6 @@ class TableSkeletonTests(unittest.TestCase):
             "l",
         )
 
-    #@GPT 无完整骨架预算应至少保持横竖方向基本份额，并在选择后恢复原索引顺序。
     def test_axis_rule_budget_is_direction_balanced(self) -> None:
         rules = [
             {
@@ -96,7 +94,6 @@ class TableSkeletonTests(unittest.TestCase):
         )
         self.assertEqual(selected, [rules[0], rules[2]])
 
-    #@GPT 旧空间预算回退必须按y、x、seqno确定性排序，而不是依赖PDF对象流顺序。
     def test_cluster_budget_uses_spatial_order(self) -> None:
         drawings = [
             {"rect": fitz.Rect(20, 20, 30, 30), "seqno": 2},
@@ -111,7 +108,6 @@ class TableSkeletonTests(unittest.TestCase):
 
         self.assertEqual(selected, [drawings[2], drawings[1]])
 
-    #@GPT 三条横线和两条竖线形成两个单元格时应产生一个连通骨架组件，并保留外沿支撑和原始drawing ID。
     def test_axis_skeleton_component_detects_multi_cell_grid(self) -> None:
         horizontal_rules = [
             {

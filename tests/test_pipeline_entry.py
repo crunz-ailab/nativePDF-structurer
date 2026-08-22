@@ -27,7 +27,6 @@ class _OpenDocumentStub:
 class PipelineEntryTests(unittest.TestCase):
     """Protect configuration transfer and result identity at the boundary."""
 
-    #@GPT 公开run应返回pipeline创建的同一个ParseResult，并将全部用户开关放进不可变ParseRunContext。
     def test_run_returns_pipeline_parse_result_without_copying(self) -> None:
         with tempfile.NamedTemporaryFile(suffix=".pdf") as source:
             config = RunConfig(

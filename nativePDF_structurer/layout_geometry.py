@@ -49,7 +49,6 @@ from .table_structure import unique_rule_positions
 from .visual_assets import image_is_large_enough, image_rects_overlap
 
 
-#@GPT 本模块集中保留规则线、空间关系和文字提取使用的既有策略值；这些不是页面特例，也不再依赖兼容核心全局。
 HEADING_MIN_PLAUSIBLE_FONT_SIZE_POINTS = 2.0
 FALLBACK_TABLE_MIN_HORIZONTAL_LENGTH_PAGE_RATIO = 0.15
 FALLBACK_TABLE_MAX_RULE_THICKNESS_POINTS = 3.0
@@ -109,14 +108,12 @@ def extract_text_lines(page_dict: dict) -> list[dict]:
     """
     text_lines: list[dict] = []
 
-    #@GPT 文档级样式归纳需要知道一行是否属于多行文本块；保留块序号和块内行数，不改变原文字拼接或bbox。
     for block_index, block in enumerate(page_dict["blocks"]):
         if block["type"] != 0:
             continue
 
         block_lines = block.get("lines", [])
         for line_index, line in enumerate(block_lines):
-            #@GPT 文本行在保持拼接结果的同时保留span字号、字体名和flags，供标题、公式和样式判断复用。
             spans = line.get("spans", [])
             text = "".join(
                 span.get("text", "") for span in spans
@@ -157,7 +154,6 @@ def extract_text_lines(page_dict: dict) -> list[dict]:
                         "character_count": character_count,
                     }
                 )
-                #@GPT 过滤不可能作为可见文字的极小字号，防止隐藏编码字符主导加权字号统计。
                 if (
                     font_size
                     >= HEADING_MIN_PLAUSIBLE_FONT_SIZE_POINTS
@@ -169,7 +165,6 @@ def extract_text_lines(page_dict: dict) -> list[dict]:
                 if is_bold:
                     bold_character_count += character_count
 
-            #@GPT 用按字符权重的中位数字号代表整行，避免一个上标或下标span把标题/正文字号判断拉偏。
             effective_font_size = weighted_median_font_size(
                 weighted_size_samples
             )
@@ -180,9 +175,7 @@ def extract_text_lines(page_dict: dict) -> list[dict]:
                     "text": text,
                     "direction": direction,
                     "angle": quantize_line_direction(direction),
-                    #@GPT 为支持文字与原 PDF 图片统一排序，给原文字行增加通用元素类型。
                     "kind": "text",
-                    #@GPT 标题阶段只消费字体元数据；保留在行对象上可以复用当前page_dict结果，不重复调用PyMuPDF。
                     "font_stats": font_stats,
                     "effective_font_size": effective_font_size,
                     "bold_character_ratio": (
@@ -192,7 +185,6 @@ def extract_text_lines(page_dict: dict) -> list[dict]:
                         else 0.0
                     ),
                     "visible_character_count": visible_character_count,
-                    #@GPT 块级信息只用于区分独立标题与连续正文，不参与GapTree几何排序。
                     "block_index": block_index,
                     "block_line_index": line_index,
                     "block_line_count": len(block_lines),
@@ -212,8 +204,6 @@ def build_pdf_outline_heading_index(
 ) -> dict[int, list[dict]]:
     """把PDF书签整理为按1-based页码索引的标题清单。"""
     outline_by_page: dict[int, list[dict]] = defaultdict(list)
-    #@GPT 使用完整TOC记录中的link destination坐标，为同页重复标题提供几何消歧依据。
-    #@GPT 主流程复用TOC缓存；独立调用时可由函数自行读取目录数据。
     for entry_index, toc_entry in enumerate(
         toc_entries
         if toc_entries is not None
@@ -228,7 +218,6 @@ def build_pdf_outline_heading_index(
             continue
         page = document.load_page(page_number - 1)
         raw_target = destination.get("to")
-        #@GPT PDF目标点使用PDF底左坐标系；page.transformation_matrix统一转换到get_text()使用的页面坐标系，避免手写“页高-y”在裁剪框页面上失效。
         target_point = (
             fitz.Point(raw_target) * page.transformation_matrix
             if raw_target is not None
@@ -276,7 +265,6 @@ def build_pdf_outline_page_name_index(
         ):
             continue
 
-        #@GPT 同级书签替换当前同级及其子级；异常层级跳跃不补造虚假父标题，只使用PDF实际路径。
         while len(hierarchy_titles) >= level:
             hierarchy_titles.pop()
         hierarchy_titles.append(title)
@@ -295,7 +283,6 @@ def build_pdf_outline_page_name_index(
     for page_number in range(1, page_count + 1):
         exact_entries = entries_by_page.get(page_number, [])
         if exact_entries:
-            #@GPT 一页可能同时开始多个小节；页面名采用该页第一个目录项，下一页继承最后活动的小节。
             selected_entry = exact_entries[0]
             source = "exact_outline_target"
         elif active_entry is not None:
@@ -323,7 +310,6 @@ def format_markdown_pdf_page_title(
 ) -> str:
     """返回目录驱动的Markdown页面二级标题。"""
     if outline_page_name and outline_page_name.get("title"):
-        #@GPT Markdown页标题只使用目录标题文本；物理页码保存在逐页JSON和summary中。
         return f"## {outline_page_name['title']}"
     return f"## Page {page_number}"
 
@@ -431,7 +417,6 @@ def drawing_has_visible_semantic_stroke(drawing: dict) -> bool:
     """判断描边是否不是白色页面上的不可见装饰线。"""
     color = drawing.get("color")
     if color is None:
-        #@GPT 未提供颜色时沿用PDF默认描边语义，不能因为缺失元数据误删真实边界。
         return True
     try:
         channels = [float(value) for value in color[:3]]
@@ -439,7 +424,6 @@ def drawing_has_visible_semantic_stroke(drawing: dict) -> bool:
         return True
     if len(channels) != 3:
         return True
-    #@GPT 与页面背景颜色一致的白色描边不承载可读分隔语义，不进入双横线说明带候选。
     return not all(channel >= 0.95 for channel in channels)
 
 
@@ -449,7 +433,6 @@ def drawing_is_stroked_preclassified_horizontal_rule(
     page_rect: fitz.Rect,
 ) -> bool:
     """判断drawing是否可以作为纯说明带的水平描边线。"""
-    #@GPT 说明带入口除轴向几何外还区分描边与填充，避免粗填充条被当作细规则线。
     if drawing.get("fill") is not None:
         return False
     if drawing.get("type") not in {"s", "fs"}:
@@ -557,7 +540,6 @@ def count_boundary_incident_vertical_rules(
     if not x_positions:
         return 0
 
-    #@GPT 同一竖线可能因PDF重复描边或分段恢复产生多个记录；按既有横线容差合并X位置，避免重复计数。
     unique_x_positions: list[float] = []
     for x_position in sorted(x_positions):
         if not unique_x_positions:
@@ -687,7 +669,6 @@ def horizontal_pair_repeats_in_another_span(
             min(current_x1, other_x1)
             - max(current_x0, other_x0),
         )
-        #@GPT 同一条边界可能被PDF重复描画并因端点误差落入不同span组；高度重叠的重复描边不是“另一表格列”，不能作为表格反证。
         if (
             shorter_width > 0
             and span_overlap_width / shorter_width
@@ -733,7 +714,6 @@ def vertical_rule_connects_horizontal_pair(
         if not structural_x0 <= vertical_x <= structural_x1:
             continue
 
-        #@GPT 轴向索引中的规则框已规范化，直接读取轻量矩形边界。
         vertical_rect = vertical_rule["rect"]
         covered_height = max(
             0.0,
@@ -766,7 +746,6 @@ def finalize_logical_horizontal_rule_audit(
         "owner_by_element_id", {}
     )
 
-    #@GPT 先把每个Claim的输入和声明ID合并成集合，避免逻辑横线审计重复扫描大型ID列表。
     claim_element_ids_by_claim_id = {
         claim["claim_id"]: set(
             claim.get("input_element_ids", [])
@@ -785,8 +764,6 @@ def finalize_logical_horizontal_rule_audit(
         table_skeleton_ids = sorted(
             source_ids & table_skeleton_drawing_ids
         )
-        #@GPT Claim来源ID先转换为set再求交集，避免在密集页面重复遍历大型列表。
-        #@GPT source_ids通常只有几个drawing ID；set.isdisjoint()在两个集合之间只需检查较小集合，保持原有“输入ID或声明ID命中即记录”的语义。
         intersecting_claims = [
             claim
             for claim in detector_claims
@@ -833,7 +810,6 @@ def finalize_logical_horizontal_rule_audit(
                 "excluded_from_table_detector_by_preclassified_rule_band"
             )
         else:
-            #@GPT 15%只控制“逻辑横线结构视图”，不会删除原始drawing；即使逻辑线未保留，源片段仍可进入普通表格检测。
             record["table_source_status"] = (
                 "raw_source_drawings_available_to_table_detector"
             )
@@ -866,7 +842,6 @@ def find_rule_attached_heading(
     if not position_rules:
         return None
 
-    #@GPT union_rects只读取边界属性，轻量AxisRect可直接参与并集计算。
     source_rule_bbox = union_rects(
         [rule["rect"] for rule in position_rules]
     ).normalize()
@@ -888,7 +863,6 @@ def find_rule_attached_heading(
             min(source_rule_bbox.y1, text_rect.y1)
             - max(source_rule_bbox.y0, text_rect.y0),
         )
-        #@GPT 零高度描边线没有可计算的面积重叠；此时用线中心是否落在文字高度带内作等价判断。
         vertically_aligned = (
             vertical_overlap > 0
             or text_rect.y0 - tolerance
@@ -969,13 +943,11 @@ def detect_text_separator_markdown_elements(
     claimed_drawing_element_ids: set[str],
     occupied_non_text_rects: list[fitz.Rect],
     excluded_text_rects: list[fitz.Rect],
-    #@GPT 后置分隔线检测复用阶段B逻辑横线，确保来源ID和合并几何与前置阶段一致。
     logical_horizontal_rules: list[dict],
 ) -> tuple[list[dict], list[dict]]:
     """检测只分隔原生文字的重复水平规则线。"""
     horizontal_rules: list[dict] = []
 
-    #@GPT 逻辑横线携带全部来源ID；任一片段已被非文本候选认领时，整条线不生成Markdown分隔符。
     for rule in logical_horizontal_rules:
         element_ids = rule_element_ids(rule)
         if element_ids & claimed_drawing_element_ids:
@@ -989,7 +961,6 @@ def detect_text_separator_markdown_elements(
     if len(horizontal_rules) < 2:
         return [], []
 
-    #@GPT 后置纯文字分隔扫描与表格前预分类共用同一份竖线结构证据；不能让预分类阶段跳过的表格列在这里再次变成Markdown `---`。
     vertical_rules = [
         rule
         for drawing in drawings
@@ -1004,7 +975,6 @@ def detect_text_separator_markdown_elements(
         horizontal_rules
     )
 
-    #@GPT 纯文字判定只使用未被表格/视觉/公式接管的正常方向文字；截图内已内聚的文字不能再为分隔线提供证据。
     available_text_lines = [
         line
         for line in text_lines
@@ -1015,7 +985,6 @@ def detect_text_separator_markdown_elements(
             excluded_table_rects=excluded_text_rects,
         )
     ]
-    #@GPT 与项目现有图片过滤共用同一门限；页眉像素线等已判定无信息的细条不阻止纯文字分隔结构。
     meaningful_source_image_rects = [
         fitz.Rect(image["bbox"])
         for image in source_images
@@ -1029,7 +998,6 @@ def detect_text_separator_markdown_elements(
     records_by_key: dict[tuple[float, float, float], dict] = {}
     tolerance = FALLBACK_TABLE_RULE_ALIGNMENT_TOLERANCE_POINTS
 
-    #@GPT 预先建立分组结果，使候选可以查询其他跨度中是否存在相同Y间距的横线对。
     for group in horizontal_rule_groups:
         positions = unique_rule_positions(group)
         if len(positions) < 2:
@@ -1042,7 +1010,6 @@ def detect_text_separator_markdown_elements(
         )
 
         for top, bottom in zip(positions, positions[1:]):
-            #@GPT 同一top/bottom横线对若在另一X跨度重复，说明它是表格同行结构；后置分隔扫描不得再次输出 `---`。
             if horizontal_pair_repeats_in_another_span(
                 horizontal_rule_groups=horizontal_rule_groups,
                 current_group=group,
@@ -1052,7 +1019,6 @@ def detect_text_separator_markdown_elements(
             ):
                 continue
 
-            #@GPT 边界容差只用于排除水平线自身的线宽和端点碎片，不用它扩张文字或截图范围。
             inner_top = top + tolerance
             inner_bottom = bottom - tolerance
             if inner_bottom <= inner_top:
@@ -1064,7 +1030,6 @@ def detect_text_separator_markdown_elements(
                 frame_x1,
                 inner_bottom,
             )
-            #@GPT 竖线允许位于横线端点外不足1pt，并按Y覆盖率判断；这里只阻止错误分隔，不扩大inner_band或最终输出范围。
             if vertical_rule_connects_horizontal_pair(
                 merged_vertical_rules=merged_vertical_rules,
                 band_rect=fitz.Rect(
@@ -1087,7 +1052,6 @@ def detect_text_separator_markdown_elements(
             if not band_text_lines:
                 continue
 
-            #@GPT 任何已存活的表格、视觉图、原图或公式与线间区域实质重叠，都说明该区域不是“只有文字”。
             if any(
                 object_area_overlap(
                     inner_band,
@@ -1131,7 +1095,6 @@ def detect_text_separator_markdown_elements(
                     <= tolerance
                     and drawing_rect.height <= tolerance * 2
                 )
-                #@GPT 极窄端点片段通常只是边界线的PDF编码碎片，不作为线间视觉内容。
                 if near_boundary:
                     continue
 
@@ -1151,7 +1114,6 @@ def detect_text_separator_markdown_elements(
             if blocking_drawing_ids:
                 continue
 
-            #@GPT 一个纯文字带让上下两条线都进入Markdown；相邻带共享的中间线通过稳定几何key去重，不输出两次 `---`。
             for position in (top, bottom):
                 position_rules = [
                     rule
@@ -1159,8 +1121,6 @@ def detect_text_separator_markdown_elements(
                     if abs(rule["position"] - position)
                     <= tolerance
                 ]
-            #@GPT 目录长条可能是同一行标题的右侧延伸标记；保留原始规则条bbox并记录附着标题，排序使用显式关系。
-                #@GPT 逻辑横线的rule['rect']常退化为中心线bbox；附着判断改用稳定drawing ID反查原始drawing范围，避免把文字误判为与“薄线”相接。
                 attachment_position_rules: list[dict] = []
                 for rule in position_rules:
                     source_rects = [
@@ -1207,7 +1167,6 @@ def detect_text_separator_markdown_elements(
                     "angle": 0,
                     "kind": "text_separator",
                     "markdown": "---",
-                    #@GPT 只有命中“同Y且端点相接”的标题才建立前置约束；普通段落间分隔线继续完全按GapTree几何顺序处理。
                     **(
                         {
                             **attached_heading,
@@ -1231,7 +1190,6 @@ def detect_text_separator_markdown_elements(
                         )
                     ),
                     "reason": "pure_text_between_repeated_horizontal_rules",
-                    #@GPT 简洁审计只保存命中的标题、原始规则条bbox和两项几何量，避免重新引入原始drawing杂项。
                     **(
                         {
                             **attached_heading,
@@ -1312,7 +1270,6 @@ def attach_empty_adjacent_rule_bands_to_tables(
             continue
         inspected_band_count += 1
 
-        #@GPT 原图属于独立语义内容；带有复杂说明矢量的区域继续走视觉截图通道，不因接近表格而被吞并。
         if band.get("image_element_ids"):
             band["adjacent_table_attachment_audit"] = {
                 "eligible": False,
@@ -1335,7 +1292,6 @@ def attach_empty_adjacent_rule_bands_to_tables(
             else:
                 complex_drawing_ids.append(element_id)
 
-        #@GPT 纯横线本身不算“内容”，但图标、箭头、器件轮廓等任何非矩形填充drawing都阻止合并，避免把真正的说明框误当表头装饰。
         if complex_drawing_ids:
             band["adjacent_table_attachment_audit"] = {
                 "eligible": False,
@@ -1350,7 +1306,6 @@ def attach_empty_adjacent_rule_bands_to_tables(
             }
             continue
 
-        #@GPT 规则带初始bbox可能跨到相邻表格；只有不属于已确认表格的文字才算该带自己的语义。
         residual_text_lines = [
             line
             for line in band.get("text_lines", [])
@@ -1371,7 +1326,6 @@ def attach_empty_adjacent_rule_bands_to_tables(
 
         best_match: dict | None = None
         for candidate in table_candidates:
-            #@GPT 只有实际会截图的表格接收视觉底色；小型纯文本表格仍保持文本通道，避免为装饰色条改变其输出类型。
             if not candidate.get("should_render_table_image", False):
                 continue
             table_rect = fitz.Rect(candidate["bbox"]).normalize()
@@ -1389,7 +1343,6 @@ def attach_empty_adjacent_rule_bands_to_tables(
                 ):
                     continue
 
-                #@GPT 允许描边和浮点误差造成不超过既有1.5pt容差的接触；只接受从表格上边或下边向外伸出的矩形，不吸收表格侧面的装饰块。
                 edge_name: str | None = None
                 edge_gap = math.inf
                 if (
@@ -1484,7 +1437,6 @@ def attach_empty_adjacent_rule_bands_to_tables(
             }
         )
 
-        #@GPT 阶段D仍按稳定图元ID唯一归属；把实际扩入截图的底色ID交给表格Claim，不把规则带另一端属于邻表的横线一并抢走。
         for key in (
             "input_element_ids",
             "claimed_element_ids",
@@ -1701,7 +1653,6 @@ def query_drawing_bbox_spatial_index(
         for cell_y in range(y_start, y_end + 1):
             candidate_indices.update(cells.get((cell_x, cell_y), []))
 
-    #@GPT 原实现按drawings输入顺序记录前5个external bbox；排序恢复稳定原始索引顺序，避免空间桶遍历顺序改变审计和后续哈希。
     return sorted(candidate_indices)
 
 
@@ -1717,7 +1668,6 @@ def analyze_object_vector_overlap(
     external_count = 0
     external_bboxes: list[list[float]] = []
 
-    #@GPT 对象重叠查询使用页面空间索引，并复用建索引时规范化的矩形。
     drawing_indices = (
         range(len(drawings))
         if drawing_spatial_index is None
@@ -1733,7 +1683,6 @@ def analyze_object_vector_overlap(
             if drawing_spatial_index is None
             else drawing_spatial_index["drawing_rects"][drawing_index]
         )
-        #@GPT bbox接触后还需达到实质overlap门槛，避免把表格边界附近的独立线段并入对象。
         drawing_overlap_ratio = drawing_bbox_overlap_ratio(
             object_rect=object_rect,
             drawing_rect=drawing_rect,
@@ -1815,7 +1764,6 @@ def prepare_precluster_object_exclusions(
     page_rect: fitz.Rect,
 ) -> dict:
     """为视觉聚类准备独立表格/图片的前置排除区域。"""
-    #@GPT 表格和原图组共用页面drawing空间索引，避免每个对象分别执行全页相交扫描。
     drawing_spatial_index = build_drawing_bbox_spatial_index(
         drawings=drawings,
     )
@@ -1828,7 +1776,6 @@ def prepare_precluster_object_exclusions(
         vector_overlap = analyze_object_vector_overlap(
             object_rect=table_rect,
             drawings=drawings,
-            #@GPT 2026-08-16 P2：只缩减精确判定前的候选集合，不改变对象关系输出字段。
             drawing_spatial_index=drawing_spatial_index,
         )
         record = {
@@ -1862,7 +1809,6 @@ def prepare_precluster_object_exclusions(
         vector_overlap = analyze_object_vector_overlap(
             object_rect=group_rect,
             drawings=drawings,
-            #@GPT 2026-08-16 P2：图片组复用与表格相同的页面级索引，避免再次遍历全页drawings。
             drawing_spatial_index=drawing_spatial_index,
         )
         image_records.append(
@@ -1876,7 +1822,6 @@ def prepare_precluster_object_exclusions(
             }
         )
 
-    #@GPT 表格之间的实质重叠通常是重复候选或同一开放框，不提前拆成两个互相遮挡的原子。
     for first_index, first_record in enumerate(table_records):
         first_rect = fitz.Rect(first_record["bbox"])
         for second_record in table_records[first_index + 1 :]:
@@ -1909,13 +1854,11 @@ def prepare_precluster_object_exclusions(
     protected_table_numbers: set[int] = set()
     for table_record in table_records:
         vector_overlap = table_record["vector_overlap"]
-        #@GPT 不会输出的小型纯文本候选不能提前挖空视觉层，否则可能只剩原生文字却丢失同区域线框；仅保护最终确实会成为表格原子的候选。
         if not table_record["will_emit_if_unclaimed"]:
             table_record["precluster_reason"] = (
                 "candidate_not_emitted_if_unclaimed"
             )
             continue
-        #@GPT 原生窄表格候选若从初始小簇向左右伸出，只有完整落在产生它的初始簇内才允许前置摘除。
         if not table_record["contained_by_source_cluster"]:
             table_record["precluster_reason"] = (
                 "extends_beyond_source_cluster"
@@ -1939,7 +1882,6 @@ def prepare_precluster_object_exclusions(
         protected_table_numbers.add(table_record["table_number"])
         protected_rects.append(fitz.Rect(table_record["bbox"]))
 
-    #@GPT 把前置判定写回统一候选，后续表格JSON和后置仲裁可直接审计同一份身份，不再靠bbox二次查找。
     records_by_table_number = {
         record["table_number"]: record
         for record in table_records

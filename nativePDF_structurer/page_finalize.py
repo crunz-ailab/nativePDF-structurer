@@ -29,7 +29,6 @@ class PageFinalizationResult:
     total_seconds: float
 
 
-#@GPT 页面record只从PageRunContext完成态构建，并保持稳定字段顺序供调试JSON和下游消费者使用。
 def finalize_page_context(
     context: PageRunContext,
     *,

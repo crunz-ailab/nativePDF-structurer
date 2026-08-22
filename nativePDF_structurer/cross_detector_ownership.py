@@ -120,7 +120,6 @@ def resolve_table_visual_candidate_ownership(
             if best_visual_index is not None
             else 0.0
         )
-        #@GPT 两个方向都超过门限时，用区域大小解决平局：更大的视觉区包含表格候选时保留视觉区，范围相当时保留表格。
         visual_claims_table = (
             best_visual_index is not None
             and best_table_overlap >= overlap_threshold
@@ -149,7 +148,6 @@ def resolve_table_visual_candidate_ownership(
 
     suppressed_visual_indices: set[int] = set()
     for visual_index, visual_rect in enumerate(visual_region_rects):
-        #@GPT 已经认领更小表格候选的大视觉区不再被另一候选反向删除，保证一个冲突连通域有唯一稳定所有者。
         if visual_index in visual_regions_claiming_tables:
             continue
 
@@ -218,7 +216,6 @@ def build_visual_text_block_keys(
         candidate_claim_ids.append(claim_id)
 
     def line_is_inside_candidate(line_rect: fitz.Rect) -> bool:
-        #@GPT 文字行归属于候选时只用于“排除正文分隔线”，不改变阶段F最终文字归属。
         for candidate_rect in candidate_rects:
             line_area = rect_area(line_rect)
             if line_area <= 0:
@@ -229,7 +226,6 @@ def build_visual_text_block_keys(
                 and rect_area(intersection) / line_area >= 0.50
             ):
                 return True
-            #@GPT 表格右侧文字行可能超出检测bbox；若文字中心仍在候选行带内且X有投影，则按候选内部文字处理。
             vertical_overlap = max(
                 0.0,
                 min(line_rect.y1, candidate_rect.y1)
@@ -269,7 +265,6 @@ def build_visual_text_block_keys(
         if line_rect.height > 0:
             text_heights.append(line_rect.height)
 
-    #@GPT 顶部对齐采用页面实际正文行高作为空间尺度，不使用固定坐标特例，也不复用表格连接容差。
     top_band_tolerance = (
         max(1.0, statistics.median(text_heights))
         if text_heights
@@ -297,7 +292,6 @@ def build_visual_text_block_keys(
             next_line_id,
         )
 
-    #@GPT 额外返回从正文行高推导的对齐尺度；调用者只读取这个值比较候选顶部，不写入最终输出文件。
     block_keys["__top_band_tolerance__"] = (
         f"{top_band_tolerance:.6f}",
         None,
@@ -325,7 +319,6 @@ def evaluate_source_cluster_local_bridge(
     visual_rect = fitz.Rect(visual_rect).normalize()
     page_rect = fitz.Rect(page_rect).normalize()
 
-    #@GPT 保留整页占位框快速否决，但它只是一项无效值检查；真正的成立条件由下面三个相对面积比例决定。
     source_cluster_is_specific = any(
         abs(float(left) - float(right)) > 0.01
         for left, right in zip(source_cluster_rect, page_rect)
@@ -334,7 +327,6 @@ def evaluate_source_cluster_local_bridge(
     table_area = rect_area(table_rect)
     visual_area = rect_area(visual_rect)
 
-    #@GPT 联合外框允许来源簇横跨两个相邻对象之间的空隙；这正是“桥接簇”的空间含义，不要求来源簇只落在两个对象各自的实体面积内。
     group_rect = fitz.Rect(table_rect)
     group_rect.include_rect(visual_rect)
 
@@ -347,7 +339,6 @@ def evaluate_source_cluster_local_bridge(
             source_explanation_ratio = (
                 rect_area(source_group_intersection) / source_cluster_area
             )
-    #@GPT 支撑率按来源簇与目标候选的较小面积归一化，允许局部来源簇连接更大的视觉图，同时要求实质重叠。
     table_support_denominator = min(source_cluster_area, table_area)
     if table_support_denominator > 0:
         source_table_intersection = source_cluster_rect & table_rect
@@ -431,7 +422,6 @@ def build_table_visual_composite_output_groups(
             if visual_claim_id not in visual_claim_by_id:
                 continue
 
-            #@GPT render_bbox可能已经包含端点文字或crop文字；复合关系只读取文字扩张前的视觉结构核心，避免相邻正文制造假重叠。
             visual_content_rect = fitz.Rect(
                 visual_record.get("content_bbox")
                 or visual_record.get("sort_source_bbox")
@@ -455,7 +445,6 @@ def build_table_visual_composite_output_groups(
             source_cluster_rect = fitz.Rect(
                 candidate.get("source_cluster_bbox", table_rect)
             ).normalize()
-            #@GPT 整页低预算路径把source_cluster_bbox写成page.rect；这种值没有局部结构意义，只记录为不可用，不作为否决条件。
             source_cluster_is_specific = any(
                 abs(float(left) - float(right)) > 0.01
                 for left, right in zip(
@@ -509,7 +498,6 @@ def build_table_visual_composite_output_groups(
                 kinds=("text",),
             )
         )
-        #@GPT 每个表格成员在attach_table_member中读取自己的来源簇，避免跨候选共享临时几何状态。
 
         group = groups_by_visual_claim.get(visual_claim_id)
         if group is None:
@@ -524,7 +512,6 @@ def build_table_visual_composite_output_groups(
                 "member_table_claim_ids": [],
                 "member_table_bboxes": [],
                 "member_table_text_element_ids": [],
-                #@GPT 同一正文视觉块可以包含多个彼此不重叠的visual Claim；这些成员只共享renderer输出，不转移各自drawing owner。
                 "member_visual_claim_ids": [],
                 "member_visual_bboxes": [],
                 "member_visual_text_element_ids": [],
@@ -550,7 +537,6 @@ def build_table_visual_composite_output_groups(
                 "table_bbox": [
                     round(value, 3) for value in table_rect
                 ],
-                #@GPT 每个relation单独保存本表格内部文字ID；阶段D若只淘汰同组中的一个表格，可精确移除其文字而不是保留整个组的并集。
                 "table_text_element_ids": table_text_ids,
                 "visual_content_bbox": [
                     round(value, 3)
@@ -585,7 +571,6 @@ def build_table_visual_composite_output_groups(
             }
         )
 
-        #@GPT 复合关系只控制输出，不转移table Claim拥有的drawing ID；claimed_by_visual_region仅复用emit_table_candidate的“暂不生成独立文件”接口。
         candidate["claimed_by_visual_region"] = True
         candidate["table_overlap_ratio"] = best_match[
             "table_overlap_ratio"
@@ -659,8 +644,6 @@ def build_table_visual_composite_output_groups(
                 )
             )
 
-    #@GPT 某些组合候选可能没有面积交集，但会共享局部来源簇、顶部对齐关系和正文上下文块。
-    #@GPT 这里新增“并列视觉块”输出关系；它只合并复杂视觉表格，不改变普通矢量表格、纯文本表格或任何图元ID owner。
     block_keys = build_visual_text_block_keys(
         page_inventory=page_inventory,
         text_lines=text_lines,
@@ -703,7 +686,6 @@ def build_table_visual_composite_output_groups(
                 "active": None,
             }
             groups_by_visual_claim[renderer_claim_id] = group
-        #@GPT 所有组合组补齐并列表格和并列视觉成员字段，保持统一输出结构。
         group.setdefault("member_visual_claim_ids", [])
         group.setdefault("member_visual_bboxes", [])
         group.setdefault("member_visual_text_element_ids", [])
@@ -758,7 +740,6 @@ def build_table_visual_composite_output_groups(
         if existing_group_id and existing_group_id != group[
             "output_group_id"
         ]:
-            #@GPT 一个visual Claim不能同时成为两个复合renderer的成员；冲突时保留先建立的组，避免普通矢量图被跨组吞并。
             return False
 
         member_rect = fitz.Rect(
@@ -848,7 +829,6 @@ def build_table_visual_composite_output_groups(
         if table_claim_id in group["member_table_claim_ids"]:
             return
         table_rect = fitz.Rect(candidate["bbox"]).normalize()
-        #@GPT 每个并列表格成员从自己的candidate读取来源簇，使局部桥接审计与实际表格一一对应。
         table_source_cluster_rect = fitz.Rect(
             candidate.get("source_cluster_bbox", table_rect)
         ).normalize()
@@ -944,7 +924,6 @@ def build_table_visual_composite_output_groups(
                 "composite_member_text_element_ids", []
             ).extend(table_text_ids)
 
-    #@GPT 同正文块组合只在复杂视觉表格上启用；纯文本表格和普通规则线表格不进入该分支。
     for candidate in table_candidates:
         if not candidate.get("structurally_valid_table", False):
             continue
@@ -956,7 +935,6 @@ def build_table_visual_composite_output_groups(
             f"page#{page_number}:table#{candidate['table_number']}"
         )
         table_block_key = block_keys.get(table_claim_id)
-        #@GPT 保留并列候选局部关系审计，用于区分正文块不一致和成员归属冲突。
         same_block_relation_audit: list[dict] = []
         table_claim_for_audit = table_claim_by_id.get(table_claim_id)
         if table_block_key is None:
@@ -965,7 +943,6 @@ def build_table_visual_composite_output_groups(
         source_cluster_rect = fitz.Rect(
             candidate.get("source_cluster_bbox", table_rect)
         ).normalize()
-        #@GPT 来源簇是否具有局部结构意义由evaluate_source_cluster_local_bridge统一判定。
         related_visuals: list[tuple[dict, list[str]]] = []
         for visual_record in visual_records:
             visual_claim_id = visual_record.get("claim_id")
@@ -977,7 +954,6 @@ def build_table_visual_composite_output_groups(
                 or visual_record["bbox"]
             ).normalize()
             same_block = block_keys.get(visual_claim_id) == table_block_key
-            #@GPT 局部桥接由候选相对大小和支撑率验证，并将全部比例写入审计。
             source_cluster_relation = (
                 evaluate_source_cluster_local_bridge(
                     source_cluster_rect=source_cluster_rect,
@@ -993,7 +969,6 @@ def build_table_visual_composite_output_groups(
             top_aligned = abs(table_rect.y0 - visual_rect.y0) <= (
                 top_band_tolerance
             )
-            #@GPT 来源簇桥接必须同时具有真实Y投影；顶部对齐关系作为独立拓扑证据处理。
             vertical_projection_overlap = max(
                 0.0,
                 min(table_rect.y1, visual_rect.y1)
@@ -1034,11 +1009,9 @@ def build_table_visual_composite_output_groups(
                         ],
                         6,
                     ),
-                    #@GPT 明确记录支撑率分母语义，避免后续把6.6%目标面积覆盖率与较小区域归一化结果混淆。
                     "source_cluster_support_normalization": (
                         "smaller_of_source_cluster_and_candidate"
                     ),
-                    #@GPT 审计记录可解释的局部桥接比例和投影关系，而不是单一相交布尔值。
                     "source_cluster_is_local_bridge": (
                         source_cluster_is_local_bridge
                     ),
@@ -1054,14 +1027,12 @@ def build_table_visual_composite_output_groups(
             )
             if not same_block:
                 continue
-            #@GPT 候选必须满足带Y投影的局部桥接，或独立的顶部对齐关系。
             if (
                 not source_cluster_bridges_with_vertical_projection
                 and not top_aligned
             ):
                 continue
             reasons = ["same_text_visual_block"]
-            #@GPT reason_codes明确记录局部桥接、Y投影和顶部对齐证据。
             if source_cluster_is_local_bridge:
                 reasons.append("table_source_cluster_locally_bridges_visual")
             if source_cluster_bridges_with_vertical_projection:
@@ -1089,7 +1060,6 @@ def build_table_visual_composite_output_groups(
         if not related_visuals:
             continue
 
-        #@GPT 已有嵌套组优先作为renderer；没有嵌套组时选结构面积最大的visual作为renderer，其他visual仅作为并列成员。
         existing_group = groups_by_visual_claim.get(
             candidate.get("output_group_parent_claim_id")
         )
@@ -1108,7 +1078,6 @@ def build_table_visual_composite_output_groups(
             )
             group = ensure_renderer_group(renderer_record)
 
-        #@GPT 从最终renderer对应关系回填local_bridge和top_aligned证据，便于直接审计组合原因。
         renderer_relation_reasons = next(
             (
                 reasons
@@ -1173,7 +1142,6 @@ def finalize_table_visual_composite_output_groups(
         candidate["claim_id"]: candidate
         for candidate in resolution.get("candidates", [])
     }
-    #@GPT 候选本身没有page_number字段；通过真实table Claim的稳定ID建立映射，避免按列表位置或手工拼页码关联。
     table_candidate_by_claim_id = {
         claim["claim_id"]: candidate
         for candidate in table_candidates
@@ -1220,7 +1188,6 @@ def finalize_table_visual_composite_output_groups(
             for claim_id in group["member_table_claim_ids"]
             if claim_survives(claim_id)
         ]
-        #@GPT 并列visual成员也必须经过阶段D存活检查；只有实际拥有图元的成员才进入最终复合截图。
         surviving_member_visual_claim_ids = [
             claim_id
             for claim_id in group.get("member_visual_claim_ids", [])
@@ -1261,7 +1228,6 @@ def finalize_table_visual_composite_output_groups(
             relation["table_bbox"]
             for relation in active_relations
         ]
-        #@GPT 按存活relation精确合并成员表格文字ID，保证文字集合与当前活跃组合关系一致。
         active_table_text_ids = sorted(
             {
                 text_id
@@ -1271,7 +1237,6 @@ def finalize_table_visual_composite_output_groups(
                 )
             }
         )
-        #@GPT 复合renderer需要同时保存存活并列visual的结构bbox和显式文字ID，阶段E/F才能完整截图并保留小图内部文字。
         active_visual_relations = [
             relation
             for relation in group.get("visual_relations", [])
@@ -1390,7 +1355,6 @@ def finalize_table_visual_composite_output_groups(
                     table_claim["metadata"][
                         "output_group_active"
                     ] = True
-            #@GPT 成员visual不再独立进入Markdown，但保留其Claim和磁盘PNG供审计；renderer存活时才设置嵌入关系。
             for member_visual_claim_id in surviving_member_visual_claim_ids:
                 member_visual_record = visual_record_by_claim_id.get(
                     member_visual_claim_id
@@ -1433,7 +1397,6 @@ def finalize_table_visual_composite_output_groups(
             continue
 
         inactive_group_ids.append(group["output_group_id"])
-        #@GPT renderer失效时，不能让阶段C的临时组合标记吞掉仍存活的表格；恢复独立输出只针对阶段D仍存活的成员。
         restored_table_claim_ids.update(
             surviving_table_claim_ids
         )
@@ -1479,7 +1442,6 @@ def finalize_table_visual_composite_output_groups(
             visual_claim["metadata"][
                 "composite_member_text_element_ids"
             ] = []
-        #@GPT 组合renderer失败时解除并列视觉成员的嵌入标记，使其恢复独立输出；表格由专用恢复函数处理。
         for member_visual_claim_id in group.get(
             "member_visual_claim_ids", []
         ):

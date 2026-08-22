@@ -23,7 +23,6 @@ from typing import Any
 MANIFEST_SCHEMA_VERSION = 1
 
 
-#@GPT 输出资源可能包含较大的PNG；分块读取避免为了计算hash一次把整个文件载入内存，同时保持纯标准库实现。
 def sha256_file(path: Path, chunk_size: int = 1024 * 1024) -> str:
     """Return the SHA-256 digest of one regular file.
 
@@ -37,7 +36,6 @@ def sha256_file(path: Path, chunk_size: int = 1024 * 1024) -> str:
     return digest.hexdigest()
 
 
-#@GPT 文件清单只使用POSIX相对路径并按路径排序，使macOS/Linux生成的JSON稳定，且不会把开发者本机绝对路径写入Git仓库。
 def build_manifest(
     output_dir: Path,
     *,
@@ -104,7 +102,6 @@ def write_manifest(
     return manifest
 
 
-#@GPT 校验时同时比较路径集合、大小和hash；只比较已有文件hash会漏掉候选被重命名、图片重复输出或资源意外消失。
 def verify_manifest(
     output_dir: Path,
     manifest_path: Path,

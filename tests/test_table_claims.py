@@ -6,12 +6,10 @@ import unittest
 import fitz
 
 from nativePDF_structurer.inventory import PageInventory
-#@GPT Claim构造已收敛到table_structure，测试改用正式结构策略入口。
 from nativePDF_structurer.table_structure import build_table_claims
 
 
 class TableClaimsTests(unittest.TestCase):
-    #@GPT 表格Claim构建测试固定检测来源、输入ID、claimed ID和source_cluster元数据，避免整页/大簇两条路径再次产生不同声明。
     def test_build_table_claims_normalizes_detected_tables(self) -> None:
         drawing = {"rect": fitz.Rect(0, 0, 20, 20), "items": []}
         inventory = PageInventory(

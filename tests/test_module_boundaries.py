@@ -78,7 +78,6 @@ EXTRACTED_SYMBOLS = {
         "select_cluster_table_budget",
         "select_cluster_table_skeleton_drawings",
     },
-#@GPT 表格候选、Claim、几何提取与合并已收敛到table_structure；边界测试按新的粗粒度主题模块审计。
     "nativePDF_structurer.table_structure": {
         "GeometryFallbackTable",
         "TableStructureDependencies",
@@ -97,7 +96,6 @@ EXTRACTED_SYMBOLS = {
         "table_cell_boundary_positions",
         "unique_rule_positions",
     },
-#@GPT 页面编排、预聚簇、fallback和局部框检测已统一收敛到table_detection，边界测试只审计一个检测主题模块。
     "nativePDF_structurer.table_detection": {
         "TablePipelineDependencies",
         "TablePreclusterDependencies",
@@ -257,7 +255,6 @@ def parse_file(path: Path) -> ast.Module:
 
 
 class ModuleBoundaryTests(unittest.TestCase):
-    #@GPT 包内模块不得反向导入历史单文件核心；历史文件已从运行包移除，checkpoint仅供回撤。
     def test_extracted_modules_do_not_import_legacy_core(self) -> None:
         for module_name in EXTRACTED_SYMBOLS:
             module_path = PROJECT_ROOT / Path(*module_name.split("."))
@@ -280,7 +277,6 @@ class ModuleBoundaryTests(unittest.TestCase):
                 module_name,
             )
 
-    #@GPT 去除兼容核心后，模块边界只检查包内模块没有重新引入历史单文件依赖。
 
 
 if __name__ == "__main__":

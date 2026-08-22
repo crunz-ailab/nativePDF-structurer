@@ -16,7 +16,6 @@ from nativePDF_structurer.header_footer import (
 
 
 class HeaderFooterCandidateTests(unittest.TestCase):
-    #@GPT 同基线、相近高度且水平相接的页尾drawing应合并为一个候选，并保留全部原始drawing索引。
     def test_merges_adjacent_footer_drawings(self) -> None:
         candidates = [
             {
@@ -42,7 +41,6 @@ class HeaderFooterCandidateTests(unittest.TestCase):
         self.assertEqual(result[0]["source_drawing_indices"], [1, 2])
         self.assertEqual(result[0]["composite_member_count"], 2)
 
-    #@GPT 页尾镜像对象按最近外侧页边距离匹配，而不是强制奇偶页具有相同绝对x0。
     def test_matches_mirrored_footer_candidate(self) -> None:
         first = {
             "kind": "drawing",
@@ -69,7 +67,6 @@ class HeaderFooterCandidateTests(unittest.TestCase):
             )
         )
 
-    #@GPT 页尾候选只收集底部带内drawing，正文对象即使内容摘要可生成也不应进入候选列表。
     def test_extracts_only_footer_band_drawings(self) -> None:
         footer = {"rect": fitz.Rect(10, 94, 40, 96)}
         body = {"rect": fitz.Rect(10, 60, 40, 62)}
@@ -94,7 +91,6 @@ class HeaderFooterCandidateTests(unittest.TestCase):
         self.assertEqual(result[0]["content_signature"], "footer")
         self.assertEqual(result[0]["source_drawing_indices"], [0])
 
-    #@GPT 模板学习按样本页支持率和同页对象数独立启用页尾模板，不应因为页眉没有候选而关闭页尾。
     def test_builds_footer_template_independently(self) -> None:
         class SamplePage:
             def __init__(self, number: int) -> None:
@@ -134,7 +130,6 @@ class HeaderFooterCandidateTests(unittest.TestCase):
         self.assertTrue(templates["footer"]["enabled"])
         self.assertEqual(len(templates["footer"]["templates"]), 1)
 
-    #@GPT 逐页模板命中达到独立页尾门槛后，应生成页尾排除带并精确记录当前页drawing索引。
     def test_detects_footer_band_and_filters_confirmed_drawing(self) -> None:
         footer = {"rect": fitz.Rect(10, 94, 40, 96)}
         body = {"rect": fitz.Rect(10, 60, 40, 62)}
@@ -188,7 +183,6 @@ class HeaderFooterCandidateTests(unittest.TestCase):
             1,
         )
 
-    #@GPT 可选页眉文字提取应按重叠率选择、规范化空白并去除同bbox重复行；关闭开关时调用方可完全跳过该函数。
     def test_extracts_and_normalizes_header_text(self) -> None:
         duplicate = {
             "text": " Chapter   One ",

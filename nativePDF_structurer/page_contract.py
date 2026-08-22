@@ -18,7 +18,6 @@ from pathlib import Path
 from .page_context import PageRunContext
 
 
-#@GPT 页面阶段名称集中定义，主流程登记和契约校验共同引用这一组常量，避免后续新增阶段时只改一处造成隐性错配。
 class PageStage:
     """Stable names for the externally auditable page-pipeline stages."""
 
@@ -40,7 +39,6 @@ class PageStage:
     FINALIZATION = "finalization"
 
 
-#@GPT 页面阶段顺序是主流程的最小接口契约；它只用于debug校验，不限制检测器内部如何实现每个阶段。
 EXPECTED_PAGE_STAGE_HISTORY = (
     PageStage.INITIALIZATION,
     PageStage.HEADER_FOOTER,
@@ -61,7 +59,6 @@ EXPECTED_PAGE_STAGE_HISTORY = (
 )
 
 
-#@GPT Claim引用检查集中在契约模块，确保检测器只声明台账中存在的图元，并明确区分“输入过”“要求独占”和“决定性特征”三种ID集合。
 def _claim_reference_warnings(
     context: PageRunContext,
     claim_ids: set[str],
@@ -128,7 +125,6 @@ def _claim_reference_warnings(
     return warnings
 
 
-#@GPT 输出原子共享一套边界契约：bbox/render_bbox/sort_bbox必须是有限、非反向的四元组，且不能越过页面；零宽或零高仅允许分隔符等退化元素使用。
 def _coerce_bbox(value: object) -> tuple[float, float, float, float] | None:
     """Convert a Rect-like value to finite numeric coordinates."""
 
@@ -190,7 +186,6 @@ def _output_boundary_warnings(
     return warnings
 
 
-#@GPT 活跃Markdown原子与磁盘文件、provenance记录必须保持一一可追踪关系；纯文本表格和分隔符没有output_path，因此只检查实际声明了文件的原子。
 def _output_artifact_warnings(
     context: PageRunContext,
 ) -> list[str]:
@@ -271,12 +266,10 @@ def _output_artifact_warnings(
     return warnings
 
 
-#@GPT 契约检查只报告跨阶段引用不一致，不改变检测、排序或默认输出；debug模式可以把报告写进页面record供后续定位问题。
 def validate_page_context(context: PageRunContext) -> list[str]:
     """Return warnings for inconsistent completed page state."""
 
     warnings: list[str] = []
-    #@GPT 兼容单元测试和外部构造的轻量PageRunContext：只有真实流水线登记过阶段时才检查顺序，避免把“未运行页面”误报为阶段错误。
     if context.stage_history and tuple(context.stage_history) != EXPECTED_PAGE_STAGE_HISTORY:
         warnings.append("stage_history.mismatch")
     if context.page_record:
@@ -290,11 +283,8 @@ def validate_page_context(context: PageRunContext) -> list[str]:
         for claim in context.detector_claims
         if claim.get("claim_id") is not None
     }
-    #@GPT 先校验Claim与台账的ID关系，再校验Markdown输出引用；这样能区分“声明本身失效”和“输出层引用失效”。
     warnings.extend(_claim_reference_warnings(context, claim_ids))
-    #@GPT 边界检查放在Claim检查之后，确保先知道“谁拥有这个原子”，再判断它的截图和排序区域是否越界。
     warnings.extend(_output_boundary_warnings(context))
-    #@GPT 文件关联检查最后执行，使缺失文件、重复路径和provenance记录缺失能与前面的Claim/bbox错误分别报告。
     warnings.extend(_output_artifact_warnings(context))
     for output_name, elements in (
         ("table", context.table_markdown_elements),

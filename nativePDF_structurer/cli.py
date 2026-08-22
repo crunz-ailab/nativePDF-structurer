@@ -27,7 +27,6 @@ def build_parser() -> argparse.ArgumentParser:
     ``-h`` 帮助或校验参数，而无需执行任何文档处理。
     """
 
-    #@GPT CLI解析与PyMuPDF导入解耦，使用户可以先查看帮助或校验参数，不必加载OpenCV和全部算法。
     parser = argparse.ArgumentParser(
         prog="nativePDF-structurer",
         description=(
@@ -83,7 +82,6 @@ def build_parser() -> argparse.ArgumentParser:
         default=True,
         help="render detected display formulas as images",
     )
-    #@GPT 书签标题匹配和纯文本网格输出是文档级策略开关；公开它们而不修改默认值，避免用户必须编辑核心源码。
     parser.add_argument(
         "--pdf-outline-heading-assignment",
         action=argparse.BooleanOptionalAction,

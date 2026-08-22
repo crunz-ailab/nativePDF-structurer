@@ -12,14 +12,12 @@ from nativePDF_structurer.rule_geometry import (
 
 
 class RuleGeometryTests(unittest.TestCase):
-    #@GPT 轴向矩形只做标量规范化，不改变端点范围。
     def test_normalizes_axis_rect(self) -> None:
         self.assertEqual(
             make_normalized_axis_rect(8, 7, 2, 1),
             (2, 1, 8, 7),
         )
 
-    #@GPT 细水平线和细竖直线分别生成对应方向片段，厚度策略由调用方传入。
     def test_extracts_axis_segments(self) -> None:
         horizontal = ("l", fitz.Point(10, 20), fitz.Point(40, 20.5))
         vertical = ("l", fitz.Point(10, 20), fitz.Point(10.5, 50))
@@ -40,7 +38,6 @@ class RuleGeometryTests(unittest.TestCase):
             "v",
         )
 
-    #@GPT 同Y且端点相接的片段合并为一条逻辑横线，真实空白则保持分开。
     def test_merges_exact_collinear_segments(self) -> None:
         segments = [
             {

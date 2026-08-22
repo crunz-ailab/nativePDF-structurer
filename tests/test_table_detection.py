@@ -6,7 +6,6 @@ import unittest
 import fitz
 
 from nativePDF_structurer.inventory import PageInventory
-#@GPT 预聚簇依赖和检测编排已集中在table_detection，专项测试改用同一主题入口。
 from nativePDF_structurer.table_detection import (
     TablePreclusterDependencies,
     detect_tables_by_drawing_clusters,
@@ -17,7 +16,6 @@ from nativePDF_structurer.table_structure import (
 
 
 class TableDetectionOrchestrationTests(unittest.TestCase):
-    #@GPT 空页面应走整页低预算路径并返回稳定的模式统计，不触发PyMuPDF表格候选或几何补检结果。
     def test_empty_page_returns_whole_page_metadata(self) -> None:
         page = types.SimpleNamespace(
             number=0,

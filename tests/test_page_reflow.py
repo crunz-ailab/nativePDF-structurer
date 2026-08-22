@@ -44,7 +44,6 @@ class PageReflowTests(unittest.TestCase):
             "nodes": [],
         }
 
-    #@GPT 页面重排模块只负责排除统计、方向分组和调用排序/格式化回调，不应丢失正文或已声明分隔线。
     def test_build_reflowed_page_text_preserves_metadata_and_sections(self) -> None:
         lines = [
             {
@@ -91,7 +90,6 @@ class PageReflowTests(unittest.TestCase):
         self.assertIn("---", grouped["0"])
         self.assertIn("旋转说明", grouped["90"])
 
-    #@GPT 方向小节追加顺序必须固定，不能按字典插入顺序漂移，保证Markdown字节回归稳定。
     def test_append_reflowed_text_uses_stable_direction_order(self) -> None:
         page_markdown: list[str] = []
 

@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-#@GPT Pyflakes确认本测试文件未使用types；旧导入仅保留为回撤注释。
 # import types
 import unittest
 
@@ -18,7 +17,6 @@ from nativePDF_structurer.inventory import PageInventory
 
 class CrossDetectorOwnershipTests(unittest.TestCase):
     def setUp(self) -> None:
-        #@GPT 跨检测器测试固定当前生产阈值：表格/视觉双向覆盖65%，来源簇解释80%，对象支撑10%。
         self.dependencies = CrossDetectorOwnershipDependencies(
             ownership_overlap_threshold=0.65,
             source_cluster_explanation_ratio=0.80,
@@ -26,7 +24,6 @@ class CrossDetectorOwnershipTests(unittest.TestCase):
             rect_is_mostly_inside_any=lambda **_: False,
         )
 
-    #@GPT 覆盖率仲裁应让“大视觉区包含小表格”由视觉区接管，并返回对应的表格决策。
     def test_overlap_ownership_prefers_larger_visual_region(self) -> None:
         decisions, suppressed = resolve_table_visual_candidate_ownership(
             table_candidates=[
@@ -43,7 +40,6 @@ class CrossDetectorOwnershipTests(unittest.TestCase):
         self.assertEqual(decisions[0]["visual_region_index"], 0)
         self.assertEqual(suppressed, set())
 
-    #@GPT 来源簇桥接必须同时满足局部来源、联合外框解释率和双方支撑率；整页来源簇直接否决。
     def test_source_cluster_bridge_rejects_page_placeholder(self) -> None:
         page_rect = fitz.Rect(0, 0, 100, 100)
         local = evaluate_source_cluster_local_bridge(
@@ -65,7 +61,6 @@ class CrossDetectorOwnershipTests(unittest.TestCase):
         self.assertFalse(placeholder["source_cluster_is_specific"])
         self.assertFalse(placeholder["source_cluster_is_local_bridge"])
 
-    #@GPT 正文块键只使用候选上下方最近的未归属正文行；页眉/候选内部文字不应改变上下文分组。
     def test_visual_text_block_keys_use_nearest_body_lines(self) -> None:
         text_a = {"bbox": fitz.Rect(0, 10, 20, 15), "text": "before"}
         text_inside = {"bbox": fitz.Rect(10, 22, 20, 26), "text": "inside"}
@@ -96,7 +91,6 @@ class CrossDetectorOwnershipTests(unittest.TestCase):
         self.assertEqual(keys["page#1:table#1"], ("t:0", "t:2"))
         self.assertGreater(float(keys["__top_band_tolerance__"][0]), 0.0)
 
-    #@GPT 65%嵌套关系只建立输出组，不转移Claim owner；视觉Claim作为renderer，表格Claim成为member_table。
     def test_build_composite_group_keeps_claim_roles(self) -> None:
         table = {
             "table_number": 1,

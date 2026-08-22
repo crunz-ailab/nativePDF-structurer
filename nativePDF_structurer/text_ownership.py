@@ -21,7 +21,6 @@ from .geometry import rect_area
 from .inventory import PageInventory
 
 
-#@GPT 阶段F为存活结构输出计算唯一文字归属；函数返回审计结果，不直接修改Markdown或结构图元owner。
 def build_stage_f_text_ownership_preview(
     inventory: PageInventory,
     claims: list[dict],
@@ -41,7 +40,6 @@ def build_stage_f_text_ownership_preview(
         and candidate["claim_id"] in emitted_claim_ids
         and candidate.get("owned_feature_bbox") is not None
     }
-    #@GPT 复合输出组同时读取renderer元数据中的成员表格文字ID，使最终PNG拥有完整文字集合而不改变drawing的表格归属。
     explicit_text_ids_by_claim: dict[str, set[str]] = {
         claim_id: {
             element_id

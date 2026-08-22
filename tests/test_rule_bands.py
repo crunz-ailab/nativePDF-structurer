@@ -22,7 +22,6 @@ def ids(rule):
 
 
 class RuleBandFrameworkTests(unittest.TestCase):
-    #@GPT 两条横线只有同时包住视觉锚点和锚点外原生文字时，才升级为复合说明框架。
     def test_two_rule_framework_requires_visual_and_external_text(self):
         rules = [
             {
@@ -55,7 +54,6 @@ class RuleBandFrameworkTests(unittest.TestCase):
             ["drawing#1", "drawing#2"],
         )
 
-    #@GPT 只有上下横线和视觉簇、没有锚点外文字时不扩张，保护普通图片边框。
     def test_two_rule_framework_rejects_without_external_text(self):
         rules = [
             {"rect": fitz.Rect(0, 10, 100, 10), "position": 10},

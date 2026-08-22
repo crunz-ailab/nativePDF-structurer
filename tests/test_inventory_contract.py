@@ -30,7 +30,6 @@ class PageInventoryContractTests(unittest.TestCase):
         )
         return inventory, drawing, image, text
 
-    #@GPT 稳定ID契约保证后续检测器使用对象身份反查，而不是重新用bbox猜测图元。
     def test_inventory_registers_stable_payload_ids(self) -> None:
         inventory, drawing, image, text = self._inventory()
 
@@ -45,7 +44,6 @@ class PageInventoryContractTests(unittest.TestCase):
             ["d:0"],
         )
 
-    #@GPT 表格和闭合视觉框是逻辑容器ID，不应伪装成普通drawing；容器登记契约固定tc:/vc:命名和标签。
     def test_logical_containers_have_separate_kinds(self) -> None:
         inventory, *_ = self._inventory()
 
@@ -65,7 +63,6 @@ class PageInventoryContractTests(unittest.TestCase):
         self.assertTrue(inventory.entry(table_id)["labels"]["logical_table_container"])
         self.assertTrue(inventory.entry(visual_id)["labels"]["closed_visual_container"])
 
-    #@GPT 发生跨检测器竞争时，PageInventory必须惰性展开父drawing的item并按Claim优先级产生唯一owner。
     def test_conflict_resolution_lazily_refines_drawing_items(self) -> None:
         inventory, *_ = self._inventory()
         claims = [

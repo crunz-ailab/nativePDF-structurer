@@ -9,7 +9,6 @@ from nativePDF_structurer.result import ParseResult
 
 
 class PageCommitTests(unittest.TestCase):
-    #@GPT 使用带有各类最小记录的合成页面验证一次性提交映射；检测算法无需参与即可防止新增ParseResult字段时漏交付某类页面结果。
     def test_commit_transfers_completed_page_state(self) -> None:
         context = PageRunContext(
             page_index=2,
@@ -85,7 +84,6 @@ class PageCommitTests(unittest.TestCase):
             context.claim_resolution,
         )
 
-    #@GPT debug提交应同时写入阶段顺序和契约警告，方便定位跨阶段问题；普通提交不应携带这两个诊断字段。
     def test_debug_commit_persists_stage_contract_audit(self) -> None:
         context = PageRunContext(
             page_index=0,

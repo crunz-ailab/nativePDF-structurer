@@ -33,13 +33,11 @@ from typing import Any
 
 import fitz
 
-#@GPT 表格结构模块现在统一承载候选分类、Claim构造、几何提取与候选合并，集中这些强关联纯策略，减少跨文件跳转。
 from .claims import create_claim_manifest
 from .geometry import as_fitz_rect, rect_area, rect_center, union_rects
 from .inventory import PageInventory
 
 
-#@GPT 表格结构策略把对齐容差、横线拼接间隙和轴向规则判据集中注入；模块不读取核心全局常量。
 @dataclass(frozen=True)
 class TableStructureDependencies:
     alignment_tolerance_points: float
@@ -47,7 +45,6 @@ class TableStructureDependencies:
     drawing_axis_rule: Callable[[dict, fitz.Rect], dict | None]
 
 
-#@GPT 同Y边界位置去重是表格补检和局部框检测共用的纯策略；保留中位数聚合，避免线宽/浮点误差制造零高度行。
 def unique_rule_positions(
     rules: list[dict],
     *,
@@ -64,7 +61,6 @@ def unique_rule_positions(
     return [statistics.median(group) for group in groups]
 
 
-#@GPT 同Y且端点间隙很小的横线先合并为表格骨架线；该结果只进入表格检测，不参与普通视觉闭运算或横向关系合并。
 def merge_horizontal_rules_for_table_skeleton(
     horizontal_rules: list[dict],
     *,
@@ -101,7 +97,6 @@ def merge_horizontal_rules_for_table_skeleton(
     merged: list[dict] = []
 
     def rule_element_ids(rule: dict) -> set[str]:
-        #@GPT 显式存在的element_ids字段具有优先级；即使为空也不再读取单个element_id。
         if rule.get("element_ids") is not None:
             return {
                 element_id
@@ -153,7 +148,6 @@ def merge_horizontal_rules_for_table_skeleton(
     return merged
 
 
-#@GPT 原生表格cells提供的二维边界只用于识别父表格骨架；几何补检对象无cells时返回空，规则线仍可作为容器证据。
 def table_cell_boundary_positions(
     table: object,
 ) -> tuple[list[float], list[float]]:
@@ -171,7 +165,6 @@ def table_cell_boundary_positions(
     return sorted(set(x_positions)), sorted(set(y_positions))
 
 
-#@GPT 规则线只有与表格单元格边界对齐并且投影进入表格时才算父容器骨架；填充矩形必须四边都对齐，避免把内部设备框当表格外框。
 def drawing_is_table_container_structure(
     drawing: dict,
     table: object,
@@ -238,7 +231,6 @@ def drawing_is_table_container_structure(
     return True
 
 
-#@GPT 表格Claim配置把父容器和骨架drawing设为结构特征；可输出截图的表格同时认领bbox内图片/矢量，防止同一表格被视觉检测重复输出。
 def configure_table_container_claim(
     claim: dict,
     candidate: dict,
@@ -352,7 +344,6 @@ def configure_table_container_claim(
     }
 
 
-#@GPT 目前父表格模型不再因为内部复杂矢量降低Claim置信度，但保留语义填充和非规则压力审计字段，便于后续诊断而不改变输出决策。
 def refine_table_claim_confidence(
     claim: dict,
     table_candidate: dict,
@@ -387,7 +378,6 @@ def refine_table_claim_confidence(
     claim["metadata"]["confidence_used_for_ownership"] = False
 
 
-#@GPT 原table_candidates.py中的候选后处理与本模块共享表格结构语义；收敛后避免检测器在多个小文件间反复跳转。
 def deduplicate_overlapping_table_candidates(
     tables: list[Any],
     overlap_ratio: float = 0.80,
@@ -426,7 +416,6 @@ def deduplicate_overlapping_table_candidates(
     return deduplicated
 
 
-#@GPT Claim初始置信度只由检测来源决定，不读取页码、文字或bbox；集中放置后由所有检测路径复用同一映射。
 def table_claim_confidence(table: object) -> float:
     """Return the initial table Claim confidence for a detector source."""
 
@@ -442,7 +431,6 @@ def table_claim_confidence(table: object) -> float:
     }.get(detection_source, 0.70)
 
 
-#@GPT 表格是否必须截图由局部图片、非规则矢量和数学字体共同决定；依赖显式注入，避免反向依赖主流程全局状态。
 def table_contains_complex_visual_content(
     table_bbox: fitz.Rect,
     page_dict: dict,
@@ -476,7 +464,6 @@ def table_contains_complex_visual_content(
         intersection = drawing_rect & table_bbox
         if rect_area(intersection) <= 0:
             continue
-        #@GPT 只有矢量本体至少有一成落在表格内才算该表格内容，防止邻近页眉、正文或装饰线污染候选。
         if (
             rect_area(intersection) / max(rect_area(drawing_rect), 1e-9)
             < image_overlap_threshold
@@ -523,7 +510,6 @@ def table_contains_complex_visual_content(
     )
 
 
-#@GPT 结构门只检查提取结果是否形成基本行列关系，不用置信度给不规则矢量表格扣分；复杂内容仍由截图策略决定。
 def classify_table_candidate_structure(
     extracted_raw: list[list[str | None]],
     table_visual_metadata: dict,
@@ -583,7 +569,6 @@ def classify_table_candidate_structure(
     }
 
 
-#@GPT 空字符串、空白和None不计入单元格数量；单值异常候选由后续统一归属阶段处理，避免候选构建器提前删除内容。
 def count_nonempty_table_cells(table_data: list[list[str | None]]) -> int:
     """Count cells containing non-whitespace text."""
 
@@ -594,7 +579,6 @@ def count_nonempty_table_cells(table_data: list[list[str | None]]) -> int:
     )
 
 
-#@GPT 原table_claims.py中的声明构造只消费已检测候选；与候选分类放在同一结构模块，保持“候选->声明”的字段契约集中可查。
 def build_table_claims(
     *,
     page_number: int,
@@ -658,7 +642,6 @@ def build_table_claims(
     return claims
 
 
-#@GPT 几何补检把规则线边界和既有文本行转换为二维单元格；它不读取页面、不做OCR，也不参与候选归属。
 def extract_geometry_table_data(
     bbox: fitz.Rect,
     horizontal_positions: list[float],
@@ -730,7 +713,6 @@ def extract_geometry_table_data(
     return data, populated_rows, populated_columns
 
 
-#@GPT 几何补检表格和原生表格的最小兼容对象、相邻片段合并都属于候选结构阶段；集中后避免 fallback 依赖另一组零散模块。
 class GeometryFallbackTable:
     """Minimal table object compatible with the parser's table consumers."""
 
@@ -750,7 +732,6 @@ class GeometryFallbackTable:
         return [list(row) for row in self._data]
 
 
-#@GPT 原生表格与几何补检候选按相邻片段、覆盖替换和页面坐标顺序统一合并。
 def combine_native_and_fallback_tables(
     native_tables: list[Any],
     fallback_tables: list[GeometryFallbackTable],

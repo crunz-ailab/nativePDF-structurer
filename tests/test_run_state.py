@@ -24,7 +24,6 @@ from nativePDF_structurer.run_state import (
 
 
 class DocumentRunStateTests(unittest.TestCase):
-    #@GPT 两次文档运行不能共享drawing缓存或累计指标；测试default_factory隔离，避免服务进程连续解析文档时发生跨文档污染。
     def test_metrics_instances_are_independent(self) -> None:
         first = DocumentRunMetrics()
         second = DocumentRunMetrics()

@@ -5,7 +5,6 @@ import unittest
 
 import fitz
 
-#@GPT 几何补检已并入table_detection，测试继续覆盖开放表格路径而不保留旧模块。
 from nativePDF_structurer.table_detection import (
     detect_geometry_fallback_tables,
 )
@@ -13,7 +12,6 @@ from nativePDF_structurer.table_structure import TableStructureDependencies
 
 
 class TableFallbackTests(unittest.TestCase):
-    #@GPT 三条横线、两条贯穿分隔线和三行文本应走含视觉内容的几何补检路径；内部非规则drawing只作为视觉表格证据，不改变外框bbox。
     def test_detects_two_row_visual_grid_path(self) -> None:
         def horizontal(y: float) -> dict:
             rule = {
@@ -117,7 +115,6 @@ class TableFallbackTests(unittest.TestCase):
         self.assertEqual(result[0].metadata["populated_row_count"], 2)
         self.assertEqual(result[0].metadata["populated_column_count"], 3)
 
-    #@GPT 少于三条有效横线不能形成补检候选；此处验证迁移没有把原先的早退条件放宽。
     def test_rejects_incomplete_horizontal_skeleton(self) -> None:
         rules = [
             {

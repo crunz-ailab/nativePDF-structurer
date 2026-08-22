@@ -57,7 +57,6 @@ from PIL import Image
 from .geometry import as_fitz_rect, rect_area, rect_center, union_rects
 from .inventory import PageInventory
 
-#@GPT 视觉区域合并的四个页面比例策略集中到同一主题模块；核心输出摘要从这里读取同一组值。
 VISUAL_REGION_VERTICAL_MERGE_PAGE_RATIO = 0.04
 VISUAL_REGION_HORIZONTAL_MERGE_PAGE_RATIO = 0.02
 VISUAL_REGION_SAME_LAYER_VERTICAL_OVERLAP_RATIO = 0.80
@@ -73,7 +72,6 @@ VISUAL_MASK_CLOSE_GAP_PAGE_RATIO = 0.015
 VISUAL_REGION_TEXT_MARGIN_PAGE_RATIO = 0.015
 VISUAL_REGION_CROP_TEXT_MAX_GAP_MULTIPLIER = 2.0
 
-#@GPT 图片视觉资产的几何策略也集中在本主题模块中；图片输入和矢量合并共享同一文件，但仍由独立函数维护。
 IMAGE_PADDING_POINTS = 2.0
 MIN_IMAGE_THIN_SIDE_POINTS = 12.0
 MIN_IMAGE_LINE_ASPECT_RATIO = 5.0
@@ -82,7 +80,6 @@ COMPLEX_TRANSFORM_EPSILON = 0.01
 HEADER_FOOTER_IMAGE_HASH_SIZE = (32, 16)
 
 
-#@GPT 只有达到最小面积比例的图片才视为同一复合图片；零面积或仅边界接触不应触发合并。
 def image_rects_overlap(
     first_rect: fitz.Rect,
     second_rect: fitz.Rect,
@@ -100,7 +97,6 @@ def image_rects_overlap(
     )
 
 
-#@GPT 图片尺寸过滤只删除细长装饰条和极小块；page_rect保留在公共签名中供统一调用。
 def image_is_large_enough(
     image_rect: fitz.Rect,
     page_rect: fitz.Rect,
@@ -123,7 +119,6 @@ def image_is_large_enough(
     return not (line_like or tiny_area)
 
 
-#@GPT 图片有旋转/倾斜变换时必须渲染页面；纯水平或垂直缩放仍可直接复制原始编码。
 def image_has_complex_transform(transform: tuple[float, ...]) -> bool:
     """判断原生图片变换是否包含旋转或倾斜。"""
 
@@ -137,7 +132,6 @@ def image_has_complex_transform(transform: tuple[float, ...]) -> bool:
     )
 
 
-#@GPT 复合图片渲染只增加固定留白，并裁剪到页面范围；图片和矢量截图共用此几何语义。
 def padded_image_clip(
     bbox: fitz.Rect,
     page_rect: fitz.Rect,
@@ -152,7 +146,6 @@ def padded_image_clip(
     )
 
 
-#@GPT 图片块清点只读取PDF已有dict，不在此阶段判断是否截图或是否被表格/视觉区域接管。
 def extract_source_image_blocks(page_dict: dict) -> list[dict]:
     """提取原PDF图片块并保留直接复制所需的编码和变换信息。"""
 
@@ -175,7 +168,6 @@ def extract_source_image_blocks(page_dict: dict) -> list[dict]:
     return image_blocks
 
 
-#@GPT 页眉/页尾图片模板和视觉资产去重共用解码后的缩略图摘要；压缩格式差异不应破坏同图匹配。
 def image_content_signature(
     image_bytes: bytes | None,
 ) -> str | None:
@@ -194,7 +186,6 @@ def image_content_signature(
         return None
 
 
-#@GPT 矢量候选生成只消费阶段A/B已有台账和局部标签；端点邻域判断仍由调用方提供，避免本模块重复构造另一套页面状态。
 def collect_visual_drawing_candidates(
     page: fitz.Page,
     all_table_rects: list[fitz.Rect],
@@ -362,7 +353,6 @@ def collect_visual_drawing_candidates(
     return candidates
 
 
-#@GPT 矢量聚类使用低分辨率占用掩码；坐标映射只决定分区，不改变最终页面渲染精度。
 def draw_rect_on_visual_mask(
     mask: np.ndarray,
     rect: fitz.Rect,
@@ -402,7 +392,6 @@ def draw_rect_on_visual_mask(
     cv2.rectangle(mask, (x0, y0), (x1, y1), 255, thickness=-1)
 
 
-#@GPT 前置保护对象必须在闭运算结果中再次清零，避免其两侧矢量被形态学操作重新桥接。
 def clear_rect_on_visual_mask(
     mask: np.ndarray,
     rect: fitz.Rect,
@@ -443,7 +432,6 @@ def clear_rect_on_visual_mask(
     cv2.rectangle(mask, (x0, y0), (x1, y1), 0, thickness=-1)
 
 
-#@GPT 将候选矢量转换为粗粒度视觉区域：候选容器归属、闭运算、表格保护和连通域拆分全部在此完成；文字归属与渲染留给页面编排层。
 def build_visual_regions_from_candidates(
     page_rect: fitz.Rect,
     candidates: list[dict],
@@ -460,7 +448,6 @@ def build_visual_regions_from_candidates(
         for container in closed_visual_containers
     }
 
-    #@GPT 一个候选只绑定最小的闭合容器；容器边界不会改变候选的原始身份，只用于阻止跨框合并和补全渲染范围。
     for candidate in candidates:
         candidate_rect = fitz.Rect(candidate["bbox"])
         matching_containers = [
@@ -503,7 +490,6 @@ def build_visual_regions_from_candidates(
     )
     closed_mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, kernel)
 
-    #@GPT 表格保护区域在闭运算后再次清零，防止保护区两侧的矢量通过形态学闭运算重新桥接。
     for protected_rect in all_table_rects:
         clear_rect_on_visual_mask(
             mask=closed_mask,
@@ -695,7 +681,6 @@ def merge_visual_region_records(
                 first = merged_regions[first_index]
                 second = merged_regions[second_index]
 
-                #@GPT 两个独立闭合图片框即使间距很小，也不能被普通空间合并重新桥接。
                 if visual_regions_cross_distinct_closed_containers(
                     first=first,
                     second=second,
@@ -713,8 +698,6 @@ def merge_visual_region_records(
                     "bbox": union_rects(
                         [first["bbox"], second["bbox"]]
                     ),
-                    #@GPT 共享原始图片导致区域合并时，排序来源框也只合并文字扩张前的视觉内容，
-                    #@GPT 避免后续重新退化为包含crop文字的完整截图bbox。
                     "sort_source_bbox": union_rects(
                         [
                             fitz.Rect(
@@ -735,12 +718,10 @@ def merge_visual_region_records(
                         first.get("drawing_count", 0)
                         + second.get("drawing_count", 0)
                     ),
-                    #@GPT 区域合并只做成员ID并集，确保最终视觉声明可追溯到初始连通域中的原drawing。
                     "drawing_element_ids": merged_region_element_ids(
                         [first, second],
                         "drawing_element_ids",
                     ),
-                    #@GPT 普通视觉区域合并只保留闭合容器ID并集；不同容器已在上方阻止，避免后续阶段丢失隔离证据。
                     "closed_visual_container_element_ids": merged_closed_visual_container_ids(
                         [first, second]
                     ),
@@ -770,7 +751,6 @@ def pure_vector_same_layer_should_merge(
     page_rect: fitz.Rect,
 ) -> bool:
     """判断两个已聚合矢量区域是否处于同一视觉层。"""
-    #@GPT 同层合并只依赖区域几何，不使用drawing数量作为隐藏条件。
     vertical_overlap = max(
         0.0,
         min(first_rect.y1, second_rect.y1)
@@ -791,15 +771,12 @@ def pure_vector_same_layer_should_merge(
         * VISUAL_REGION_SAME_LAYER_HORIZONTAL_GAP_PAGE_RATIO
     )
 
-    #@GPT 采用两个已聚合bbox的上下左右极限坐标；不使用中心点，也不使用合并后新bbox递归扩张。
-    #@GPT “高度投影+页面比例间隔”是窄间隔区域的主合并路径。
     normal_same_layer = (
         vertical_overlap_ratio
         >= VISUAL_REGION_SAME_LAYER_VERTICAL_OVERLAP_RATIO
         and horizontal_gap <= maximum_horizontal_gap
     )
 
-    #@GPT 更远区域必须由水平连接线或共享水平框架提供明确结构关系。
 
     return normal_same_layer
 
@@ -824,7 +801,6 @@ def merge_pure_vector_same_layer_once(
                 continue
 
             second = regions[second_index]
-            #@GPT 同一页的上下闭合图片框不能因纯矢量同层投影重叠而再次合并；该规则只允许同框组件合并。
             if visual_regions_cross_distinct_closed_containers(
                 first=first,
                 second=second,
@@ -834,7 +810,6 @@ def merge_pure_vector_same_layer_once(
                 first_rect=fitz.Rect(first["bbox"]),
                 second_rect=fitz.Rect(second["bbox"]),
                 page_rect=page_rect,
-                #@GPT 同层关系只消费双方已聚合bbox和页面尺寸。
             ):
                 partner_index = second_index
                 break
@@ -854,12 +829,10 @@ def merge_pure_vector_same_layer_once(
                     first.get("drawing_count", 0)
                     + second.get("drawing_count", 0)
                 ),
-                #@GPT 一次性同层合并保留双方drawing身份，Claim阶段无需再按bbox反查来源。
                 "drawing_element_ids": merged_region_element_ids(
                     [first, second],
                     "drawing_element_ids",
                 ),
-                #@GPT 一次性同层合并沿用闭合容器身份；不同容器已被前置判定阻止。
                 "closed_visual_container_element_ids": merged_closed_visual_container_ids(
                     [first, second]
                 ),
@@ -884,7 +857,6 @@ def merge_visual_regions_by_horizontal_relations_once(
     regions: list[dict],
     drawings: list[dict],
     page_rect: fitz.Rect,
-    #@GPT 水平关系合并使用阶段B逻辑横线，保证框架几何与来源ID一致。
     logical_horizontal_rules: list[dict],
     drawing_is_filled_horizontal_bar: Callable[[dict], bool],
     drawing_is_long_horizontal_single_line: Callable[[dict], bool],
@@ -896,7 +868,6 @@ def merge_visual_regions_by_horizontal_relations_once(
         return regions
 
     parent = list(range(len(regions)))
-    #@GPT 并查集同时维护闭合视觉容器ID；通过普通水平关系合并时，联合集合若包含两个不同容器则拒绝union，防止间接桥接。
     container_ids_by_root = {
         index: set(
             region.get(
@@ -933,24 +904,20 @@ def merge_visual_regions_by_horizontal_relations_once(
 
     for drawing in drawings:
         drawing_rect = fitz.Rect(drawing["rect"]).normalize()
-        #@GPT 复用已有分隔线分类；这些线仍不进入闭运算，只在这里作为横向关系证据。
         if (
             drawing_is_filled_horizontal_bar(drawing)
             or drawing_is_long_horizontal_single_line(drawing)
         ):
             horizontal_relation_lines.append(drawing_rect)
 
-    #@GPT 逻辑横线既提供共享框架，也可作为跨越左右区域的关系证据；这里只读取几何rect，不向视觉掩码新增drawing。
     horizontal_frame_rules = [
         dict(rule) for rule in logical_horizontal_rules
     ]
     horizontal_relation_lines.extend(
-        #@GPT 风险1：逻辑横线内部可能是AxisRect，渲染/关系列表是PyMuPDF几何API边界，集中转换并保留轻量索引内部不物化的收益。
         as_fitz_rect(rule["rect"])
         for rule in logical_horizontal_rules
     )
 
-    #@GPT 水平线直接跨过左右两个区域的投影重叠带时，认为它们属于同一横向视觉域；不检查垂直连接线。
     for first_index, first in enumerate(regions):
         first_rect = fitz.Rect(first["bbox"])
         for second_index in range(first_index + 1, len(regions)):
@@ -974,7 +941,6 @@ def merge_visual_regions_by_horizontal_relations_once(
             ):
                 union(first_index, second_index)
 
-    #@GPT 共享表格框架按相邻水平边界形成行带；同一行带内的多个簇合并，跨行的簇不会因上下接近而合并。
     for frame_group in group_horizontal_rules_by_span(
         horizontal_frame_rules
     ):
@@ -1021,12 +987,10 @@ def merge_visual_regions_by_horizontal_relations_once(
                     member.get("drawing_count", 0)
                     for member in members
                 ),
-                #@GPT 水平关系合并后的候选继承全部成员drawing ID；关系线本身若已进入任一成员也随之保留。
                 "drawing_element_ids": merged_region_element_ids(
                     members,
                     "drawing_element_ids",
                 ),
-                #@GPT 水平关系合并保留闭合容器ID并集；并查集已确保不会出现两个不同容器的非法并集。
                 "closed_visual_container_element_ids": merged_closed_visual_container_ids(
                     members
                 ),
@@ -1067,7 +1031,6 @@ def visual_regions_should_merge_shared_image(
     if not first_image_ids.intersection(second_image_ids):
         return False
 
-    #@GPT 共享同一个PDF原始图片块是直接对象身份关系，不再附加Y投影或距离门槛。
     #     minimum_height > 0
     #     and vertical_overlap / minimum_height >= 0.80
     #     and horizontal_gap
@@ -1096,7 +1059,6 @@ def merge_visual_regions_sharing_images(
                 first = merged_regions[first_index]
                 second = merged_regions[second_index]
 
-                #@GPT 共享原图关系不能跨越两个明确闭合图片框；原图身份只合并同一容器内被拆开的矢量子簇。
                 if visual_regions_cross_distinct_closed_containers(
                     first=first,
                     second=second,
@@ -1154,12 +1116,10 @@ def merge_visual_regions_sharing_images(
                         first.get("drawing_count", 0)
                         + second.get("drawing_count", 0)
                     ),
-                    #@GPT 共享原图合并发生在声明输出前，必须同时合并矢量与图片稳定ID，避免最终区域只保留最后一个子簇身份。
                     "drawing_element_ids": merged_region_element_ids(
                         [first, second],
                         "drawing_element_ids",
                     ),
-                    #@GPT 共享图片合并保留闭合容器ID，供最终声明和后续审计核对。
                     "closed_visual_container_element_ids": merged_closed_visual_container_ids(
                         [first, second]
                     ),
@@ -1193,7 +1153,6 @@ def merge_visual_regions_sharing_images(
                             "attached_image_element_ids",
                         )
                     ),
-                    #@GPT 框架元数据只用于审计；文字归属读取structural_rects，合并后仍保留框内关系。
                     "rule_line_frameworks": [
                         *first.get("rule_line_frameworks", []),
                         *second.get("rule_line_frameworks", []),
@@ -1205,7 +1164,6 @@ def merge_visual_regions_sharing_images(
                 break
 
     return merged_regions
-#@GPT 闭合视觉容器检测独立于OpenCV连通域：只依据轴向规则、可见描边和候选台账登记容器，不负责文字归属或渲染。
 def detect_closed_visual_rule_containers(
     page_rect: fitz.Rect,
     axis_geometry_index: dict,
@@ -1226,7 +1184,6 @@ def detect_closed_visual_rule_containers(
     excluded_ids = set(excluded_drawing_element_ids)
     page_area = rect_area(page_rect)
 
-    #@GPT 描边可见性只依赖单个drawing；按稳定ID缓存结果，避免规则线多次引用同一对象时重复解析。
     visible_semantic_stroke_by_element_id: dict[str, bool] = {}
     for element_id in page_inventory.ids_of_kind("drawing"):
         entry = page_inventory.entry(element_id)
@@ -1236,12 +1193,10 @@ def detect_closed_visual_rule_containers(
                 labels["visible_semantic_stroke"]
             )
         else:
-            #@GPT 独立调试调用若未提供阶段B标签，则现场执行一次等价判据。
             visible_semantic_stroke_by_element_id[element_id] = (
                 drawing_has_visible_semantic_stroke(entry["payload"])
             )
 
-    #@GPT 候选中心在全部闭合框判断中保持不变，因此按稳定ID预计算一次。
     available_candidate_centers = {
         element_id: rect_center(page_inventory.bbox_of(element_id))
         for element_id in available_ids
@@ -1255,11 +1210,9 @@ def detect_closed_visual_rule_containers(
         source_ids = rule_element_ids(rule)
         if not source_ids or source_ids & excluded_ids:
             continue
-        #@GPT 轴向索引中的AxisRect已规范化，容器筛选直接读取坐标属性。
         rule_rect = rule["rect"]
         if rule_rect.width <= 0:
             continue
-        #@GPT 规则线的全部来源drawing都必须具有可见语义描边，判断复用阶段B布尔缓存。
         if not all(
             visible_semantic_stroke_by_element_id.get(
                 element_id,
@@ -1283,11 +1236,9 @@ def detect_closed_visual_rule_containers(
         source_ids = rule_element_ids(rule)
         if not source_ids or source_ids & excluded_ids:
             continue
-        #@GPT 竖线与横线共用轻量AxisRect，只在最终形成真实container_rect时进入PyMuPDF几何对象。
         rule_rect = rule["rect"]
         if rule_rect.height <= 0:
             continue
-        #@GPT 竖线与横线复用可见描边缓存，白色或不可见线条继续被排除。
         if not all(
             visible_semantic_stroke_by_element_id.get(
                 element_id,
@@ -1304,7 +1255,6 @@ def detect_closed_visual_rule_containers(
             }
         )
 
-    #@GPT 使用1pt量化桶查找相同左右端点，避免在密集页对所有横线执行两两跨度比较。
     horizontal_groups: dict[tuple[int, int], list[dict]] = defaultdict(list)
     for rule in horizontal_rules:
         rect = rule["rect"]
@@ -1442,7 +1392,6 @@ def detect_closed_visual_rule_containers(
                 }
             )
 
-    #@GPT 同一矩形可能由重复描边或分段横线重复提出；按bbox去重后再移除被更大闭框完全包住的内部框，保留最外层语义容器。
     unique_by_bbox: dict[tuple[float, ...], dict] = {}
     for container in raw_containers:
         rect = container["bbox"]
@@ -1498,7 +1447,6 @@ def detect_closed_visual_rule_containers(
         )
     return outermost
 
-#@GPT 视觉文字附着基础层：先证明文字与视觉结构的几何关系，再由页面编排层决定是否写入Markdown。
 def text_bbox_overlaps_visual_crop(
     text_rect: fitz.Rect,
     visual_rect: fitz.Rect,
@@ -1511,8 +1459,6 @@ def text_bbox_overlaps_visual_crop(
     if text_area <= 0:
         return False
 
-    #@GPT 仅允许与原始视觉簇存在纵向投影的上方文字参与截图；
-    #@GPT 文字即使落入固定扩张边距，只要与区域Y投影为0，就不应被视觉区域接管。
     if text_rect.y1 <= visual_rect.y0:
         return False
 
@@ -1544,7 +1490,6 @@ def text_bbox_overlaps_visual_crop(
         - max(text_rect.y0, visual_rect.y0),
     )
 
-    #@GPT 文字在左右两侧时要求Y投影重叠，在上下两侧时要求X投影重叠；仅凭距离不能把邻栏正文并入截图。
     return (
         (
             horizontal_gap <= maximum_gap
@@ -1594,9 +1539,6 @@ def promote_right_attached_crop_text_lines(
     if not crop_text_lines or not attached_image_rects:
         return []
 
-    #@GPT 大图四周标注不走本规则；只有小图标重复排列时，
-    #@GPT 右侧文字才可以安全视为截图中的原生文字，而不会接管普通图外说明。
-    #@GPT 比较图标高度与视觉簇宽度：小而近似方形的图标可附着右侧文字，纵向大图不会触发该规则。
     if any(
         image_rect.height > visual_rect.width
         for image_rect in attached_image_rects
@@ -1635,12 +1577,10 @@ def drawing_extension_segments(
             if math.dist((first.x, first.y), (second.x, second.y)) >= 4.0:
                 segments.append((first, second))
         elif item_type == "c":
-            #@GPT 曲线路径使用首尾控制点作为端点，保留其整体bbox用于截图；不把控制点当作额外文字连接点。
             first, second = fitz.Point(item[1]), fitz.Point(item[4])
             if math.dist((first.x, first.y), (second.x, second.y)) >= 4.0:
                 segments.append((first, second))
         elif item_type == "re":
-            #@GPT PDF常把细竖线或横线编码成填充矩形；只将细长矩形的长轴中心线作为连接段。
             rect = fitz.Rect(item[1]).normalize()
             major = max(rect.width, rect.height)
             minor = min(rect.width, rect.height)
@@ -1708,7 +1648,6 @@ def segment_bridges_opposite_visual_sides(
     delta_x = abs(second.x - first.x)
     delta_y = abs(second.y - first.y)
 
-    #@GPT 近水平线必须左右两端分别触及区域左右边；它可以是外框线，也可以是框内分段线。
     if (
         delta_x > 0
         and delta_y / delta_x
@@ -1722,7 +1661,6 @@ def segment_bridges_opposite_visual_sides(
             <= boundary_tolerance
         )
 
-    #@GPT 垂直情形与水平情形对称；两端跨满上下边的线归入容器/分隔结构，而不是文字说明引线。
     if (
         delta_y > 0
         and delta_x / delta_y
@@ -1763,7 +1701,6 @@ def collect_visual_region_terminal_endpoints(
             if interval is None:
                 continue
 
-            #@GPT 结构线的两端可能也位于边界附近，必须在逐端点判断之前整段排除，否则仍会用其中一端吸收框外文字。
             if segment_bridges_opposite_visual_sides(
                 first=first,
                 second=second,
@@ -1821,7 +1758,6 @@ def promote_text_lines_at_visual_endpoints(
 
         for endpoint, drawing_rect in terminal_endpoints:
             distance = point_to_rect_distance(endpoint, text_rect)
-    #@GPT 端点附着比普通crop候选更严格：按文字行高度限制端点间距，避免图片上方正文仅因边界线而被吸收。
             endpoint_gap = min(
                 maximum_gap,
                 max(4.0, text_rect.height * 0.85),
@@ -1866,7 +1802,6 @@ def collect_region_external_connector_endpoints(
             first_is_outside = lower > 1e-9
             second_is_outside = upper < 1.0 - 1e-9
 
-            #@GPT 要求线段恰好一个端点位于区域外，保证扩张是一跳的“图内→图外”关系；穿图线不参与。
             if first_is_outside == second_is_outside:
                 continue
             if segment_bridges_opposite_visual_sides(
@@ -1942,7 +1877,6 @@ def promote_text_lines_at_region_external_connectors(
     return promoted, extension_drawings
 
 
-#@GPT 视觉区域的原生文字只做Markdown引用格式化；阅读顺序算法由调用方注入，避免视觉模块反向依赖核心排序实现。
 def format_visual_region_native_text(
     text_lines: list[dict],
     page_rect: fitz.Rect,
@@ -1978,7 +1912,6 @@ def format_visual_region_native_text(
     return "\n".join(quote_rows) + "\n", ordered_lines
 
 
-#@GPT 视觉资产保留完整渲染框，阅读顺序只在有图内文字时使用顶部窄锚点；该函数不修改原始bbox。
 def build_top_sort_bbox(render_bbox: fitz.Rect) -> fitz.Rect:
     """为视觉资产生成仅用于阅读顺序的顶部锚点框。"""
 
@@ -1993,7 +1926,6 @@ def build_top_sort_bbox(render_bbox: fitz.Rect) -> fitz.Rect:
     )
 
 
-#@GPT 最终视觉输出契约集中构造Markdown原子和调试记录；截图执行与Claim仲裁仍由页面编排层负责。
 def build_visual_region_output_record(
     *,
     page_number: int,
@@ -2112,7 +2044,6 @@ def build_visual_region_output_record(
     return markdown_element, record, render_bbox, owned_text_rects
 
 
-#@GPT 视觉区域Claim仅依据候选已保存的稳定ID和输出记录构造；不再从最终扩张bbox反查页面图元。
 def build_visual_region_claims(
     *,
     page_number: int,
@@ -2201,7 +2132,6 @@ def build_visual_region_claims(
     return claims
 
 
-#@GPT 页面渲染循环与视觉输出/Claim构造放在同一主题模块；调用方只提供已完成检测的区域和现有策略函数。
 def render_visual_regions(
     *,
     page: fitz.Page,
@@ -2292,23 +2222,17 @@ def point_to_rect_distance(
     delta_y = max(rect.y0 - point.y, 0.0, point.y - rect.y1)
     return math.hypot(delta_x, delta_y)
 
-#@GPT 粗视觉区域总编排在同一主题模块中串联候选、容器、连通域、结构合并和文字/图片附着；外部算法依赖通过显式回调传入。
 def detect_coarse_visual_regions(
     page: fitz.Page,
     page_dict: dict,
     text_lines: list[dict],
     all_table_rects: list[fitz.Rect],
-    #@GPT 传入已确认页眉/页尾带，使视觉区域检测在候选提取阶段就排除重复装饰。
     excluded_header_footer_rects: list[fitz.Rect],
-    #@GPT 2026-08-15：阶段B逻辑横线是视觉关系/框架检测的必需输入；删除向下传播None的假兼容接口。
     logical_horizontal_rules: list[dict],
-    #@GPT 视觉粗区域接收页面drawing、原图和台账缓存，避免重复提取和对象身份漂移。
     drawings: list[dict],
     source_images: list[dict],
     page_inventory: PageInventory,
-    #@GPT 封闭视觉容器复用阶段B轴向索引；不再为每个页面重新扫描drawing寻找上下左右边界。
     axis_geometry_index: dict,
-    #@GPT 表格父容器只移交骨架drawing ID；表内复杂矢量仍保留在视觉检测器输入中，稍后建立child_of关系。
     excluded_drawing_element_ids: set[str] | None = None,
     *,
     max_background_area_page_ratio: float,
@@ -2326,11 +2250,7 @@ def detect_coarse_visual_regions(
     rect_is_mostly_inside_any: Callable[..., bool],
 ) -> list[dict]:
     """检测表格外的粗粒度矢量视觉区域。"""
-    #@GPT 水平关系阶段与候选阶段共用main()传入的页面drawing缓存。
     page_drawings = drawings
-    #@GPT 表格骨架ID不仅不能进入初始视觉掩码，也不能在后续水平连接、规则框架或端点扩张阶段重新进入；建立一份视觉阶段专用drawing视图，原始页面缓存保持不变。
-    #@GPT 整页描边框同样属于“页面结构而非内容”：它即使没有进入初始候选，也可能通过逻辑横线索引重新成为框架边界，因此先转换为稳定ID统一排除。
-    #@GPT 阶段B缓存整页框标签，视觉候选直接读取，避免密集页重复扫描drawing路径。
     page_frame_drawing_ids = {
         element_id
         for element_id in page_inventory.ids_of_kind("drawing")
@@ -2351,13 +2271,9 @@ def detect_coarse_visual_regions(
             )
         )
     ]
-    #@GPT visual_drawings和logical_horizontal_rules使用同一图元排除视图，防止已归表格或说明带的横线重新参与视觉合并。
-    #@GPT 逻辑横线携带全部源drawing ID；只要其中任一片段已被上游表格/说明带认领，整条合成线就不再向视觉阶段提供跨区连接或框架证据，避免部分复用造成边界泄漏。
-    #@GPT 逻辑横线过滤与初始drawing过滤保持同一ID集合，防止页面结构线绕过候选过滤扩展区域。
     excluded_visual_drawing_ids = set(
         excluded_drawing_element_ids or set()
     ).union(page_frame_drawing_ids)
-    #@GPT 逻辑横线始终使用列表契约；无规则时传空列表。
     visual_logical_horizontal_rules = [
         rule
         for rule in logical_horizontal_rules
@@ -2370,7 +2286,6 @@ def detect_coarse_visual_regions(
         page=page,
         all_table_rects=all_table_rects,
         excluded_header_footer_rects=excluded_header_footer_rects,
-        #@GPT 初始候选与后续结构阶段统一使用已移除父表格骨架的drawing视图，防止同一网格线在框架阶段被重新认领。
         drawings=visual_drawings,
         page_inventory=page_inventory,
         excluded_drawing_element_ids=(
@@ -2396,7 +2311,6 @@ def detect_coarse_visual_regions(
     if not candidates:
         return []
 
-    #@GPT 先登记闭合图片框；容器检测只消费当前视觉候选的drawing ID，不把表格或页眉规则线引回视觉通道。
     closed_visual_containers = detect_closed_visual_rule_containers(
         page_rect=page.rect,
         axis_geometry_index=axis_geometry_index,
@@ -2424,7 +2338,6 @@ def detect_coarse_visual_regions(
         rule_element_ids=rule_element_ids,
         rect_is_mostly_inside_any=rect_is_mostly_inside_any,
     )
-    #@GPT 候选到OpenCV初始区域的空间阶段由build_visual_regions_from_candidates统一处理。
     regions = build_visual_regions_from_candidates(
         page_rect=page.rect,
         candidates=candidates,
@@ -2434,8 +2347,6 @@ def detect_coarse_visual_regions(
         close_gap_page_ratio=VISUAL_MASK_CLOSE_GAP_PAGE_RATIO,
     )
 
-    #@GPT build_visual_regions_from_candidates统一完成容器归属、闭运算、表格保护和连通域拆分。
-    #@GPT OpenCV初级连通域先经过图片尺寸门限，阻止细线噪声在粗粒度空间聚合中相互放大。
     regions = [
         region
         for region in regions
@@ -2444,23 +2355,18 @@ def detect_coarse_visual_regions(
             page_rect=page.rect,
         )
     ]
-    #@GPT 初级连通域过滤后才执行通用空间聚合，保留不规则矢量簇所需的横向、纵向及双间距合并条件。
     regions = merge_visual_region_records(
         regions=regions,
         page_rect=page.rect,
     )
-    #@GPT 普通小间距聚合完成后，只做一轮纯矢量同层合并；不把文字、图片附着后的扩张bbox再次用于递归合并。
     regions = merge_pure_vector_same_layer_once(
         regions=regions,
         page_rect=page.rect,
     )
-    #@GPT 普通同层合并后再依据水平连接线/共享水平框架合并同一行簇；垂直线不作为区域扩张依据。
     regions = merge_visual_regions_by_horizontal_relations_once(
         regions=regions,
-        #@GPT 表格骨架不能充当两个表内/表外视觉簇之间的水平连接件。
         drawings=visual_drawings,
         page_rect=page.rect,
-        #@GPT 与visual_drawings保持同一图元视图；已被上游认领的逻辑横线不能重新连接视觉簇。
         logical_horizontal_rules=(
             visual_logical_horizontal_rules
         ),
@@ -2474,26 +2380,20 @@ def detect_coarse_visual_regions(
         unique_rule_positions=unique_rule_positions,
     )
 
-    #@GPT 【规则线框架阶段】位于闭运算和视觉簇合并之后、文字/原图附着之前；被分隔线过滤掉的横线不重新进入闭运算，只作为最终结构边界。
-    #@GPT 三条以上横线可恢复完整分段框；两条等跨度横线在框内存在内容时也可统一渲染区域。
     for region in regions:
         framework_bbox, framework_metadata = (
             detect_rule_line_framework_bbox(
                 region_bbox=fitz.Rect(region["bbox"]),
-                #@GPT 规则线框架只能读取视觉阶段剩余drawing；已归父表格的横竖线不能再次把整个表格包装成视觉框架。
                 drawings=visual_drawings,
                 page_rect=page.rect,
-                #@GPT 两线模式使用get_text('dict')提取的原生文字确认框内存在说明内容，不新增OCR或第三方依赖。
                 text_lines=text_lines,
                 page_inventory=page_inventory,
-                #@GPT 框架检测同样只读取视觉阶段尚未被认领的逻辑横线，防止表格边框再次扩张视觉截图。
                 logical_horizontal_rules=(
                     visual_logical_horizontal_rules
                 ),
             )
         )
         if framework_bbox is not None:
-            #@GPT 多个相邻图片框可能共享上下边界；闭合容器边界优先，跨出当前容器的框架不参与扩张。
             closed_container_ids = region.get(
                 "closed_visual_container_element_ids",
                 [],
@@ -2507,27 +2407,22 @@ def detect_coarse_visual_regions(
                     outer_rect=closed_container_rect,
                     tolerance=CLOSED_VISUAL_CONTAINER_RULE_TOLERANCE_POINTS,
                 ):
-                    #@GPT 跨出当前闭合容器的框架不参与扩张，避免重复渲染相邻图片。
                     framework_bbox = None
 
         if framework_bbox is not None:
-            #@GPT 规则线框架只能补全视觉内容，不能反向缩小已经检测到的矢量簇。
             original_vector_cluster_bbox = fitz.Rect(
                 region["bbox"]
             )
             region["vector_cluster_bbox"] = (
                 original_vector_cluster_bbox
             )
-            #@GPT 取原簇与框架候选的并集：误分组不会裁掉原内容，真实外围框架仍可向外扩张。
             region["bbox"] = union_rects(
                 [
                     original_vector_cluster_bbox,
                     framework_bbox,
                 ]
             )
-            #@GPT rule_line_frameworks使用列表保存，使共享图片合并后仍能保留每个框架的审计信息。
             region["rule_line_frameworks"] = [framework_metadata]
-            #@GPT 框架横线是该视觉候选成立和扩边的直接证据，必须进入同一drawing声明集合；只合并ID，不改变bbox。
             region["drawing_element_ids"] = sorted(
                 set(region.get("drawing_element_ids", [])).union(
                     framework_metadata.get(
@@ -2538,8 +2433,6 @@ def detect_coarse_visual_regions(
         else:
             region["rule_line_frameworks"] = []
 
-    #@GPT 2026-08-16：视觉阶段直接消费阶段A提取的原图缓存，不再从page_dict重复构造图片列表。
-    #@GPT 不允许已识别页眉/页尾图片作为视觉区域附件，否则矢量区域仍会把被排除的图像重新带回。
     source_images = [
         image
         for image in source_images
@@ -2557,7 +2450,6 @@ def detect_coarse_visual_regions(
         * VISUAL_REGION_TEXT_MARGIN_PAGE_RATIO
     )
 
-    #@GPT 先完成“矢量/框架+原始图片”的结构合并，再在最终结构上统一判定文字归属。
     for region in regions:
         structural_bbox = fitz.Rect(region["bbox"])
         expanded = fitz.Rect(
@@ -2585,12 +2477,9 @@ def detect_coarse_visual_regions(
         ]
         content_bbox = union_rects(structural_rects)
 
-        #@GPT 保存页面图片块的稳定source_index，供“同一原始图片多次被区域引用”的结构合并使用。
         attached_source_image_indices = [
             image["source_index"] for image in attached_images
         ]
-        #@GPT 原图的source_index属于page_dict block编号，不能直接拼接成i:ID；始终通过台账对象反查得到同一编号域。
-        #@GPT 原始图片通过页面台账反查稳定ID，保证声明与页面inventory使用同一编号域。
         attached_image_element_ids = page_inventory.ids_for_payloads(
             attached_images,
             "image",
@@ -2610,7 +2499,6 @@ def detect_coarse_visual_regions(
             set(attached_source_image_indices)
         )
 
-    #@GPT 共享图片身份是结构关系，必须在文字归属和截图扩张之前合并；合并后的sort_source_bbox明确等于结构content_bbox。
     regions = merge_visual_regions_sharing_images(
         regions=regions,
     )
@@ -2619,7 +2507,6 @@ def detect_coarse_visual_regions(
         [] for _ in regions
     ]
     assigned_owner_by_line_id: dict[int, int] = {}
-    #@GPT 文本归属也必须尊重闭合视觉容器；否则第二个图片框内的编号可能因“未分配文字默认当前区域”被第一个框抢走。
     closed_container_entries = [
         page_inventory.entry(element_id)
         for element_id in page_inventory.ids_of_kind(
@@ -2659,7 +2546,6 @@ def detect_coarse_visual_regions(
             )
             if text_is_owned_by_visual_structure(
                 text_rect=line_rect,
-                #@GPT content_bbox是共享图片合并后的最终结构外框；独立结构框同时保留，便于后续审计与扩展。
                 structural_rects=[
                     fitz.Rect(region["content_bbox"]),
                     *(
@@ -2700,7 +2586,6 @@ def detect_coarse_visual_regions(
             min(page.rect.x1, content_bbox.x1 + attachment_margin),
             min(page.rect.y1, content_bbox.y1 + attachment_margin),
         )
-        #@GPT 附近文字只作为“小图标+右侧说明”的提升候选；普通crop候选不无条件扩大截图。
         crop_text_lines = [
             line
             for line in text_lines
@@ -2735,10 +2620,8 @@ def detect_coarse_visual_regions(
                 "attached_image_rects", []
             ),
         )
-        #@GPT 水平、垂直和倾斜引线统一由端点附着规则处理，避免维护多套方向特例。
         leader_promoted_text_lines: list[dict] = []
 
-        #@GPT 端点规则需要审查固定crop框之外的文字；归属仍受表格、页眉和已有区域owner约束，不会把整页文字作为截图候选。
         endpoint_candidate_text_lines = [
             line
             for line in text_lines
@@ -2763,7 +2646,6 @@ def detect_coarse_visual_regions(
                     *promoted_crop_text_lines,
                 ],
                 visual_rect=content_bbox,
-                #@GPT 端点文字扩张同样不能借用父表格骨架，否则表格边线会把框外标题或正文吸入子视觉截图。
                 drawings=visual_drawings,
                 maximum_gap=(
                     attachment_margin
@@ -2790,9 +2672,7 @@ def detect_coarse_visual_regions(
         }
         effective_text_lines = list(effective_by_id.values())
 
-        #@GPT render_bbox只允许最终结构和已确认归属/提升的文字扩张；sort_source_bbox始终停留在文字扩张前的content_bbox。
         render_rects = [content_bbox]
-        #@GPT 端点附着命中的矢量本身也属于截图内容；只加入本次命中文字对应的drawing，不递归扩大视觉区域。
         render_rects.extend(endpoint_extension_rects)
         render_rects.extend(
             fitz.Rect(line["bbox"])
@@ -2800,7 +2680,6 @@ def detect_coarse_visual_regions(
         )
         region["bbox"] = union_rects(render_rects)
         region["included_text_line_count"] = len(effective_text_lines)
-        #@GPT crop_text_line_count现在表示审查过的邻近候选数；它不再等价于截图扩张数量。
         region["crop_text_line_count"] = len(crop_text_lines)
         region[
             "promoted_crop_text_line_count"
@@ -2814,7 +2693,6 @@ def detect_coarse_visual_regions(
                 ]
             }
         )
-        #@GPT leader字段继续作为稳定报告字段；所有方向的端点标签统一记录到endpoint字段。
         region[
             "leader_promoted_text_line_count"
         ] = len(leader_promoted_text_lines)
