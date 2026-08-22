@@ -173,6 +173,31 @@ class ReadingOrderBackendTests(unittest.TestCase):
         self.assertEqual(len(groups), 1)
         self.assertEqual([item["text"] for item in groups[0]], ["first", "second"])
 
+    #@GPT 无有效水平切分时必须保持GapTree的列顺序；该回归覆盖论文双栏中左栏续行被全局Y排序挪到右栏之后的故障。
+    def test_horizontal_partition_preserves_node_order_without_split(self) -> None:
+        node_groups = [
+            [self._text("左栏上部", 10, 10, 50, 20)],
+            [self._text("左栏续行", 10, 40, 50, 50)],
+            [self._text("右栏上部", 80, 12, 120, 22)],
+        ]
+
+        groups, metadata = split_gap_tree_nodes_by_horizontal_gaps(
+            node_groups,
+            source_angle=0,
+            page_rect=fitz.Rect(0, 0, 200, 200),
+            row_tolerance_points=3.0,
+        )
+
+        self.assertFalse(metadata["enabled"])
+        self.assertEqual(
+            [group[0]["text"] for group in groups],
+            ["左栏上部", "左栏续行", "右栏上部"],
+        )
+        self.assertEqual(
+            metadata["reason"],
+            "no_accepted_horizontal_partition",
+        )
+
     #@GPT 两列稳定正文的首行若同时被提前放入同一标题节点，应分别回挂到对应列节点。
     def test_reparents_cross_column_leading_row(self) -> None:
         def column(anchor_x):

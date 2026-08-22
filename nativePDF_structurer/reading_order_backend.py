@@ -1443,6 +1443,33 @@ def split_gap_tree_nodes_by_horizontal_gaps(
         )
         fragment_records.extend(node_split_fragments)
 
+    #@GPT 只有确实接受了“视觉原子后接短文本带”的水平切分，才允许建立跨片段DAG；
+    #@GPT 无有效切分时必须保留GapTree原节点顺序，否则按bbox全局重排会把双栏续行插到另一栏顶部之后。
+    if not split_records:
+        return [record["group"] for record in fragment_records], {
+            "enabled": False,
+            "reason": "no_accepted_horizontal_partition",
+            "original_node_count": len(node_groups),
+            "final_fragment_count": len(fragment_records),
+            "median_text_height": round(median_text_height, 3),
+            "gap_threshold": round(gap_threshold, 3),
+            "split_records": [],
+            "fragment_order": [
+                {
+                    "original_node_index": record[
+                        "original_node_index"
+                    ],
+                    "fragment_index": record["fragment_index"],
+                    "bbox": [
+                        round(value, 3)
+                        for value in record["bbox"]
+                    ],
+                }
+                for record in fragment_records
+            ],
+            "cycle_detected": False,
+        }
+
     if len(fragment_records) <= 1:
         return [record["group"] for record in fragment_records], {
             "enabled": bool(split_records),
