@@ -63,6 +63,7 @@ class RunConfig:
     enable_formula_detection: bool = True
     enable_pdf_outline_heading_assignment: bool = True
     force_pure_text_table_to_markdown: bool = False
+    formula_output_mode: str = "image"
 
     def __post_init__(self) -> None:
         source = Path(self.source_pdf).expanduser()
@@ -71,6 +72,10 @@ class RunConfig:
             raise FileNotFoundError(f"source PDF does not exist: {source}")
         if source.suffix.lower() != ".pdf":
             raise ValueError(f"source file is not a PDF: {source}")
+        if self.formula_output_mode not in {"image", "latex", "hybrid"}:
+            raise ValueError(
+                "formula_output_mode must be one of: image, latex, hybrid"
+            )
         object.__setattr__(self, "source_pdf", source)
         object.__setattr__(self, "output_dir", output)
         if self.pages is not None:

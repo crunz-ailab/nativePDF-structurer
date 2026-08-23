@@ -70,6 +70,21 @@ class RunConfigTests(unittest.TestCase):
         )
         self.assertTrue(override_config.force_pure_text_table_to_markdown)
 
+    def test_formula_output_mode_is_validated(self) -> None:
+        with tempfile.NamedTemporaryFile(suffix=".pdf") as source:
+            config = RunConfig(
+                source_pdf=source.name,
+                output_dir=Path(source.name).with_suffix(""),
+                formula_output_mode="hybrid",
+            )
+            self.assertEqual(config.formula_output_mode, "hybrid")
+            with self.assertRaisesRegex(ValueError, "formula_output_mode"):
+                RunConfig(
+                    source_pdf=source.name,
+                    output_dir=Path(source.name).with_suffix(""),
+                    formula_output_mode="unknown",
+                )
+
     def test_page_run_context_keeps_raw_and_working_drawings(self) -> None:
         """Initialize page state without copying the drawing list."""
 

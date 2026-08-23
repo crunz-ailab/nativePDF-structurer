@@ -1,15 +1,16 @@
 """根据PDF原生文字层检测并渲染行间公式区域。
 
-模块使用字体族、数学符号、栏位
-几何、纵向聚类和公式编号锚点定位公式；确认区域以图片输出，不重建LaTeX，
-也不执行OCR。
+模块使用字体族、数学符号、栏位几何、纵向聚类和公式编号锚点定位公式。
+默认将确认区域渲染为图片；在显式开启时，仅对能够安全线性化的简单公式
+输出LaTeX，否则回退图片。模块不执行OCR。
 
 Detect and render display-formula regions from native PDF text.
 
-Uses font families, mathematical symbols, column geometry, vertical
-clustering, and equation-number anchors to locate display formulas. Accepted
-regions are rendered as images; the module does not reconstruct LaTeX or run
-OCR.
+Uses font families, mathematical symbols, column geometry, vertical clustering,
+and equation-number anchors to locate display formulas. Accepted regions are
+rendered as images by default; an explicit LaTeX mode emits only safely
+linearized simple formulas and falls back to images for ambiguous structures.
+The module does not run OCR.
 """
 
 from __future__ import annotations
@@ -28,6 +29,8 @@ from .visual_assets import build_top_sort_bbox
 
 FORMULA_CLUSTER_VERTICAL_GAP_POINTS = 10.0
 FORMULA_NUMBER_ATTACH_MARGIN_POINTS = 14.0
+FORMULA_NUMBER_SEED_VERTICAL_MARGIN_POINTS = 18.0
+FORMULA_NUMBER_SEED_MAX_PROSE_WORDS_PER_LINE = 1
 MATH_FONT_HINTS = (
     "CambriaMath", "CMMI", "CMEX", "CMSY", "MSBM", "Math",
     "Symbol", "STIX", "MSAM", "CMMIB", "NewTXM", "NewTXSY",
@@ -38,6 +41,9 @@ MATH_GREEK = set("αβγδεζηθικλμνξοπρστυφχψωΑΒΓΔΕΖΗ
 LATEX_COMMAND_PATTERN = re.compile(r"\\\s*[A-Za-z]+")
 EQUATION_NUMBER_PATTERN = re.compile(r"^\s*\((?:Eq\.\s*)?\d+[a-z]?\)\s*$", re.I)
 EQUATION_NUMBER_AT_END_PATTERN = re.compile(r"\((?:Eq\.\s*)?\d+[a-z]?\)\s*$", re.I)
+LATEX_SAFE_TEXT_PATTERN = re.compile(
+    r"^[A-Za-z0-9\\{}^_+=*/().,;:'\-\s×÷≤≥≈≠±]+$"
+)
 
 def formula_column_key(
     rect: fitz.Rect,
@@ -56,14 +62,14 @@ def formula_column_key(
 
     return "full"
 
-def extract_formula_line_records(
+def extract_formula_line_feature_records(
     page_dict: dict,
     page_rect: fitz.Rect,
     excluded_rects: list[fitz.Rect],
     *,
     line_is_inside_any_table: Callable[..., bool],
 ) -> list[dict]:
-    """提取带公式结构特征的文本行和独立公式编号。"""
+    """提取页面文本行及其公式结构特征，不预先丢弃普通行。"""
     records: list[dict] = []
 
     for block_index, block in enumerate(page_dict["blocks"]):
@@ -91,6 +97,7 @@ def extract_formula_line_records(
                 not character.isspace() for character in text
             )
             math_font_character_count = 0
+            math_font_span_count = 0
 
             for span in line.get("spans", []):
                 span_text = span.get("text", "")
@@ -100,6 +107,7 @@ def extract_formula_line_records(
                     hint.lower() in font_name.lower()
                     for hint in MATH_FONT_HINTS
                 ):
+                    math_font_span_count += 1
                     math_font_character_count += sum(
                         not character.isspace()
                         for character in span_text
@@ -150,9 +158,6 @@ def extract_formula_line_records(
                 )
             )
 
-            if not (is_formula_candidate or is_equation_number):
-                continue
-
             records.append(
                 {
                     "bbox": bbox,
@@ -166,15 +171,166 @@ def extract_formula_line_records(
                         has_inline_equation_number
                     ),
                     "math_font_ratio": math_font_ratio,
+                    "math_font_character_count": (
+                        math_font_character_count
+                    ),
+                    "math_font_span_count": math_font_span_count,
+                    "non_space_count": non_space_count,
                     "latex_command_count": latex_command_count,
                     "math_symbol_count": math_symbol_count,
                     "greek_count": greek_count,
                     "prose_word_count": prose_word_count,
                     "signal_score": structural_signal_count,
+                    "spans": list(line.get("spans", [])),
                 }
             )
 
     return records
+
+
+def extract_formula_line_records(
+    page_dict: dict,
+    page_rect: fitz.Rect,
+    excluded_rects: list[fitz.Rect],
+    *,
+    line_is_inside_any_table: Callable[..., bool],
+) -> list[dict]:
+    """提取带公式结构特征的文本行和独立公式编号。"""
+    return [
+        record
+        for record in extract_formula_line_feature_records(
+            page_dict=page_dict,
+            page_rect=page_rect,
+            excluded_rects=excluded_rects,
+            line_is_inside_any_table=line_is_inside_any_table,
+        )
+        if record["is_formula_candidate"]
+        or record["is_equation_number"]
+    ]
+
+
+def build_number_seeded_formula_clusters(
+    line_features: list[dict],
+    page_rect: fitz.Rect,
+) -> list[dict]:
+    """使用独立公式编号反向收集同栏展示公式成员。"""
+    equation_numbers = [
+        record
+        for record in line_features
+        if record["is_equation_number"]
+    ]
+    clusters: list[dict] = []
+
+    for number in equation_numbers:
+        number_bbox = fitz.Rect(number["bbox"])
+        number_center_y = (number_bbox.y0 + number_bbox.y1) / 2
+        band_y0 = (
+            number_center_y
+            - FORMULA_NUMBER_SEED_VERTICAL_MARGIN_POINTS
+        )
+        band_y1 = (
+            number_center_y
+            + FORMULA_NUMBER_SEED_VERTICAL_MARGIN_POINTS
+        )
+        same_band = [
+            record
+            for record in line_features
+            if not record["is_equation_number"]
+            # A wide formula may cross the physical midpoint and be classified
+            # as ``full``.  The equation number remains the local column anchor.
+            and record["column"] in {number["column"], "full"}
+            and record["bbox"].y1 >= band_y0
+            and record["bbox"].y0 <= band_y1
+            and record["bbox"].x0 < number_bbox.x0
+            and record["bbox"].x1 <= number_bbox.x0 + 1.0
+        ]
+        if not same_band:
+            continue
+
+        prose_lines = [
+            record
+            for record in same_band
+            if record["prose_word_count"]
+            > FORMULA_NUMBER_SEED_MAX_PROSE_WORDS_PER_LINE
+        ]
+        if prose_lines:
+            continue
+
+        math_seed_lines = [
+            record
+            for record in same_band
+            if record["math_font_character_count"] > 0
+        ]
+        if not math_seed_lines:
+            continue
+
+        has_relation_or_fraction_signal = any(
+            any(symbol in record["text"] for symbol in ("=", "×", "÷", "/"))
+            for record in same_band
+        )
+        if not has_relation_or_fraction_signal:
+            continue
+
+        member_bbox = union_rects(
+            [record["bbox"] for record in same_band]
+        )
+        clusters.append(
+            {
+                "column": number["column"],
+                "bbox": union_rects([member_bbox, number_bbox]),
+                "lines": sorted(
+                    same_band,
+                    key=lambda record: (
+                        record["bbox"].y0,
+                        record["bbox"].x0,
+                    ),
+                ),
+                "equation_numbers": [number],
+                "has_number_anchor": True,
+                "detection_reason": (
+                    "equation_number_seed_with_math_font_band"
+                ),
+            }
+        )
+
+    return clusters
+
+
+def try_build_formula_latex(cluster: dict) -> str | None:
+    """尝试从一个公式簇生成保守的线性 LaTeX 表达式。"""
+    lines = sorted(
+        cluster.get("lines", []),
+        key=lambda item: (item["bbox"].y0, item["bbox"].x0),
+    )
+    if not lines or len(lines) > 1:
+        return None
+    line = lines[0]
+    text = str(line.get("text", "")).strip()
+    if not text or line.get("prose_word_count", 0) > 2:
+        return None
+    if not line.get("math_font_character_count") and not line.get(
+        "latex_command_count"
+    ):
+        return None
+    if not any(symbol in text for symbol in ("=", "×", "÷", "/", "\\")):
+        return None
+    # PyMuPDF may expose a command as ``\\ f r a c``; collapse only spaces
+    # between a backslash and command letters, retaining ordinary token gaps.
+    latex = re.sub(r"\\\s+([A-Za-z])", r"\\\1", text)
+    latex = latex.replace("×", r"\times ").replace("÷", r"\div ")
+    latex = latex.replace("−", "-").replace("≤", r"\leq ")
+    latex = latex.replace("≥", r"\geq ").replace("≈", r"\approx ")
+    latex = latex.replace("≠", r"\ne ").replace("±", r"\pm ")
+    latex = re.sub(r"\s+", " ", latex).strip()
+    if len(latex) > 240 or not LATEX_SAFE_TEXT_PATTERN.fullmatch(latex):
+        return None
+    equation_numbers = cluster.get("equation_numbers", [])
+    if equation_numbers:
+        label = str(equation_numbers[0].get("text", "")).strip()
+        match = re.fullmatch(r"\((\d+[a-z]?)\)", label, re.I)
+        if match:
+            latex = f"{latex} \\tag{{{match.group(1)}}}"
+    return latex
 
 def cluster_formula_candidates(
     candidates: list[dict],
@@ -286,10 +442,11 @@ def process_page_formula_regions(
     formula_min_unnumbered_width_page_ratio: float,
     formula_padding_points: float,
     line_is_inside_any_table: Callable[..., bool],
+    formula_output_mode: str = "image",
 ) -> tuple[list[dict], list[dict], list[fitz.Rect], float]:
     """检测显示公式、渲染图片，并返回需要从正文精确去重的行框。"""
     started = time.perf_counter()
-    line_records = extract_formula_line_records(
+    line_features = extract_formula_line_feature_records(
         page_dict=page_dict,
         page_rect=page.rect,
         excluded_rects=[
@@ -301,12 +458,12 @@ def process_page_formula_regions(
     )
     formula_candidates = [
         record
-        for record in line_records
+        for record in line_features
         if record["is_formula_candidate"]
     ]
     equation_numbers = [
         record
-        for record in line_records
+        for record in line_features
         if record["is_equation_number"]
     ]
     clusters = cluster_formula_candidates(formula_candidates)
@@ -314,6 +471,28 @@ def process_page_formula_regions(
         clusters=clusters,
         equation_numbers=equation_numbers,
     )
+    seeded_clusters = build_number_seeded_formula_clusters(
+        line_features=line_features,
+        page_rect=page.rect,
+    )
+    # 编号种子路径只替换与其明显重叠的旧候选；页面上的无编号公式继续使用旧路径。
+    for seeded in seeded_clusters:
+        seeded_rect = fitz.Rect(seeded["bbox"])
+        duplicate = False
+        for existing in clusters:
+            existing_rect = fitz.Rect(existing["bbox"])
+            intersection = existing_rect & seeded_rect
+            if intersection.is_empty:
+                continue
+            overlap = intersection.get_area() / max(
+                1.0,
+                min(existing_rect.get_area(), seeded_rect.get_area()),
+            )
+            if overlap >= 0.50:
+                duplicate = True
+                break
+        if not duplicate:
+            clusters.append(seeded)
     accepted_clusters: list[dict] = []
 
     for cluster in clusters:
@@ -391,24 +570,45 @@ def process_page_formula_regions(
             f"page_{page_number:03d}_formula_"
             f"{formula_number:02d}.png"
         )
-        output_path = formula_dir / output_name
-        render_started = time.perf_counter()
-        pixmap = page.get_pixmap(
-            clip=output_bbox,
-            dpi=formula_image_dpi,
-            alpha=False,
-            annots=True,
+        latex = try_build_formula_latex(cluster)
+        latex_supported = latex is not None
+        needs_image = (
+            formula_output_mode == "image"
+            or latex is None
+            or formula_output_mode == "hybrid"
         )
-        pixmap.save(output_path)
-        render_seconds = time.perf_counter() - render_started
-        relative_path = f"formula_images/{output_name}"
-        markdown_text = "\n\n".join(
-            [
-                f"![Page {page_number} Mathematical Formula "
-                f"{formula_number}]({relative_path})",
-                "> 数学公式（PDF页面渲染图）",
-            ]
-        )
+        output_path = formula_dir / output_name if needs_image else None
+        pixmap = None
+        render_seconds = 0.0
+        if needs_image:
+            render_started = time.perf_counter()
+            pixmap = page.get_pixmap(
+                clip=output_bbox,
+                dpi=formula_image_dpi,
+                alpha=False,
+                annots=True,
+            )
+            pixmap.save(output_path)
+            render_seconds = time.perf_counter() - render_started
+        image_markdown = ""
+        if needs_image:
+            relative_path = f"formula_images/{output_name}"
+            image_markdown = "\n\n".join(
+                [
+                    f"![Page {page_number} Mathematical Formula "
+                    f"{formula_number}]({relative_path})",
+                    "> 数学公式（PDF页面渲染图）",
+                ]
+            )
+        if formula_output_mode == "image" or latex is None:
+            markdown_text = image_markdown
+            emitted_mode = "rendered_formula"
+        elif formula_output_mode == "latex":
+            markdown_text = f"$$\n{latex}\n$$"
+            emitted_mode = "latex"
+        else:
+            markdown_text = f"$$\n{latex}\n$$\n\n{image_markdown}"
+            emitted_mode = "hybrid"
         owned_text_rects.extend(owned_rects)
         markdown_elements.append(
             {
@@ -420,8 +620,11 @@ def process_page_formula_regions(
                 "angle": 0,
                 "kind": "formula",
                 "markdown": markdown_text,
-                "mode": "rendered_formula",
+                "mode": emitted_mode,
                 "output_path": output_path,
+                "latex": latex,
+                "latex_supported": latex_supported,
+                "output_mode": emitted_mode,
             }
         )
         records.append(
@@ -447,9 +650,12 @@ def process_page_formula_regions(
                     line["text"]
                     for line in cluster["equation_numbers"]
                 ],
-                "output_path": str(output_path),
-                "output_width": pixmap.width,
-                "output_height": pixmap.height,
+                "output_path": str(output_path) if output_path else None,
+                "latex": latex,
+                "latex_supported": latex_supported,
+                "output_mode": emitted_mode,
+                "output_width": pixmap.width if pixmap else None,
+                "output_height": pixmap.height if pixmap else None,
                 "render_seconds": round(render_seconds, 6),
             }
         )

@@ -7,10 +7,12 @@ import fitz
 
 from nativePDF_structurer.formula_regions import (
     attach_equation_numbers_to_clusters,
+    build_number_seeded_formula_clusters,
     cluster_formula_candidates,
     extract_formula_line_records,
     formula_column_key,
     process_page_formula_regions,
+    try_build_formula_latex,
 )
 
 
@@ -104,6 +106,50 @@ class FormulaRegionTests(unittest.TestCase):
         self.assertEqual(records, [])
         self.assertEqual(markdown, [])
         self.assertEqual(owned, [])
+
+    def test_number_seed_collects_mixed_math_font_fragments(self) -> None:
+        """Use an equation label to recover native lines split by font runs."""
+        page = fitz.Rect(0, 0, 200, 300)
+        features = [
+            {
+                "bbox": fitz.Rect(10, 100, 60, 112),
+                "text": "Ip = (2.69 x 105) n",
+                "column": "left",
+                "is_equation_number": False,
+                "math_font_character_count": 3,
+                "prose_word_count": 0,
+                "signal_score": 3,
+                "has_inline_equation_number": False,
+            },
+            {
+                "bbox": fitz.Rect(70, 102, 80, 112),
+                "text": "(1)",
+                "column": "left",
+                "is_equation_number": True,
+                "math_font_character_count": 0,
+                "prose_word_count": 0,
+                "signal_score": 0,
+                "has_inline_equation_number": False,
+            },
+        ]
+        clusters = build_number_seeded_formula_clusters(features, page)
+        self.assertEqual(len(clusters), 1)
+        self.assertEqual(clusters[0]["equation_numbers"][0]["text"], "(1)")
+
+    def test_simple_formula_can_be_emitted_as_latex(self) -> None:
+        cluster = {
+            "lines": [
+                {
+                    "bbox": fitz.Rect(10, 10, 80, 22),
+                    "text": "Ip = a/b",
+                    "math_font_character_count": 3,
+                    "latex_command_count": 0,
+                    "prose_word_count": 0,
+                }
+            ],
+            "equation_numbers": [{"text": "(1)"}],
+        }
+        self.assertEqual(try_build_formula_latex(cluster), r"Ip = a/b \tag{1}")
 
 
 if __name__ == "__main__":

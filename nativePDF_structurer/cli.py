@@ -83,6 +83,12 @@ def build_parser() -> argparse.ArgumentParser:
         help="render detected display formulas as images",
     )
     parser.add_argument(
+        "--formula-output",
+        choices=("image", "latex", "hybrid"),
+        default="image",
+        help="formula output: image (default), latex when safely recoverable, or hybrid",
+    )
+    parser.add_argument(
         "--pdf-outline-heading-assignment",
         action=argparse.BooleanOptionalAction,
         default=True,
@@ -115,6 +121,7 @@ def main(argv: list[str] | None = None) -> int:
         enable_table_header_detection=args.table_header_detection,
         keep_header_text=args.keep_header_text,
         enable_formula_detection=args.formula_detection,
+        formula_output_mode=args.formula_output,
         enable_pdf_outline_heading_assignment=(
             args.pdf_outline_heading_assignment
         ),

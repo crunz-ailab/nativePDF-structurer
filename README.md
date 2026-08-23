@@ -10,9 +10,11 @@
 NativePDF Structurer 的处理策略主要围绕这些结构设计。
 
 学术论文可以作为普通数字原生 PDF 处理，但不是当前版本的主要优化场景。
-项目不会尝试把复杂公式精确还原为 LaTeX，也没有针对论文中的引用关系、双栏
-论文模板和语义章节分类进行专项建模。对于页数较少的论文，尤其需要公式恢复、
-OCR、图表理解或图片语义识别时，更推荐直接使用
+项目不把复杂公式准确还原为 LaTeX 作为目标。默认公式以页面渲染图保留；可选的
+LaTeX 通道只依据原生文字层，对结构明确的简单公式进行保守尝试，结果不保证可靠，
+不能替代专业公式识别工具。项目也没有针对论文中的引用关系、双栏论文模板和语义
+章节分类进行专项建模。对于页数较少的论文，尤其需要公式恢复、OCR、图表理解或
+图片语义识别时，更推荐直接使用
 [MinerU](https://github.com/opendatalab/MinerU) 等具备模型或 VLM 解析路径的
 成熟工具。
 
@@ -249,9 +251,17 @@ python -m nativePDF_structurer input.pdf \
 --table-header-detection / --no-table-header-detection
 --keep-header-text / --no-keep-header-text
 --formula-detection / --no-formula-detection
+--formula-output MODE                  公式输出：image（默认）、latex 或 hybrid
 --pdf-outline-heading-assignment / --no-pdf-outline-heading-assignment
 --force-pure-text-table-to-markdown / --no-force-pure-text-table-to-markdown
 ```
+
+公式默认渲染为 PNG，以避免复杂上下标、分式和混合字体公式被错误改写。
+使用 `--formula-output latex` 或 `--formula-output hybrid` 时，程序只对
+能够由原生文字层明确线性化的简单公式尝试输出 Markdown 数学块；复杂或有歧义的
+公式自动回退为 PNG，因此该通道不承诺数学语义和排版完全正确。生成的 `$$ ... $$`
+需要由下游 Markdown 阅读器提供 MathJax 或 KaTeX 渲染，项目本身不额外引入
+LaTeX 编译器或 Python 数学包。
 
 ## 输出结构
 

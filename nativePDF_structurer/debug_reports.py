@@ -655,25 +655,27 @@ def write_formula_region_report(
     lines = [
         "# 数学公式渲染清单",
         "",
-        f"共生成 **{len(records)}** 个显示公式页面渲染图。",
+        f"共检测到 **{len(records)}** 个显示公式输出区域。",
         "",
         "| 页面 | 图片文件 | 分栏 | 编号锚点 | 归属文字行 | 图片尺寸 |",
         "|---:|---|---|---|---:|---:|",
     ]
 
     for record in records:
-        filename = Path(record["output_path"]).name
+        output_path = record.get("output_path")
+        filename = Path(output_path).name if output_path else "（无PNG）"
         labels = ", ".join(record["equation_labels"]) or "行内编号"
         number_anchor = (
             labels if record["has_number_anchor"] else "无"
         )
         lines.append(
             f"| {record['page_number']} "
-            f"| [`{filename}`](formula_images/{filename}) "
+            f"| {f'[`{filename}`](formula_images/{filename})' if output_path else filename} "
             f"| {record['column']} "
             f"| {number_anchor} "
             f"| {record['owned_text_line_count']} "
-            f"| {record['output_width']} × {record['output_height']} px |"
+            f"| {record.get('output_width') or '—'} × "
+            f"{record.get('output_height') or '—'} px |"
         )
 
     path.write_text("\n".join(lines) + "\n", encoding="utf-8")

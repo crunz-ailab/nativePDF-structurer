@@ -14,11 +14,15 @@ illustrations, vector annotations, and mixed text-and-graphic regions.
 NativePDF Structurer is optimized around those structures.
 
 Academic papers can be processed as ordinary digital-native PDFs, but they are
-not the primary target of the current release. The project does not attempt to
-reconstruct complex equations as exact LaTeX, nor does it include specialized
-models for citation relationships, two-column paper templates, or semantic
-section classification. For shorter papers, especially when equation recovery,
-OCR, chart understanding, or image semantics are required, a mature tool with
+not the primary target of the current release. The project does not treat exact
+reconstruction of complex equations as a goal. Equations are kept as rendered
+page images by default; the optional LaTeX path makes a conservative attempt
+only for simple expressions that are clearly linearized by the native text
+layer, and its result is not guaranteed to be reliable or mathematically
+equivalent. The project also does not include specialized models for citation
+relationships, two-column paper templates, or semantic section classification.
+For shorter papers, especially when equation recovery, OCR, chart understanding,
+or image semantics are required, a mature tool with
 model- or VLM-based parsing paths such as
 [MinerU](https://github.com/opendatalab/MinerU) is generally a better choice.
 
@@ -286,9 +290,19 @@ Common options:
 --table-header-detection / --no-table-header-detection
 --keep-header-text / --no-keep-header-text
 --formula-detection / --no-formula-detection
+--formula-output MODE                  Formula output: image (default), latex, or hybrid
 --pdf-outline-heading-assignment / --no-pdf-outline-heading-assignment
 --force-pure-text-table-to-markdown / --no-force-pure-text-table-to-markdown
 ```
+
+Formulas are rendered as PNG by default to avoid rewriting complex fractions,
+scripts, and mixed-font expressions incorrectly. With
+`--formula-output latex` or `--formula-output hybrid`, the parser emits a
+Markdown math block only when the native text layer can be clearly linearized;
+ambiguous equations fall back to PNG. This path does not guarantee exact
+mathematical semantics or typography. Rendering `$$ ... $$` requires MathJax or
+KaTeX in the downstream Markdown viewer. No LaTeX compiler or additional Python
+math package is required.
 
 ## Output layout
 

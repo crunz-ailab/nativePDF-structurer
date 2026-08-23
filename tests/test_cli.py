@@ -23,6 +23,7 @@ class CommandLineInterfaceTests(unittest.TestCase):
             "--table-header-detection",
             "--keep-header-text",
             "--formula-detection",
+            "--formula-output",
             "--pdf-outline-heading-assignment",
             "--force-pure-text-table-to-markdown",
         ):

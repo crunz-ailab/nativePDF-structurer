@@ -80,6 +80,7 @@ class PageStageAdapterDependencies:
     FORMULA_IMAGE_DPI: Any
     FORMULA_MIN_UNNUMBERED_WIDTH_PAGE_RATIO: Any
     FORMULA_PADDING_POINTS: Any
+    FORMULA_OUTPUT_MODE: Any
     GAPTREE_DEBUG_DPI: Any
     HEADER_FOOTER_BAND_PADDING_POINTS: Any
     HEADER_FOOTER_CANDIDATE_COUNT: Any
@@ -1180,6 +1181,7 @@ def process_page_semantics(
     FORMULA_IMAGE_DPI = dependencies.FORMULA_IMAGE_DPI
     FORMULA_MIN_UNNUMBERED_WIDTH_PAGE_RATIO = dependencies.FORMULA_MIN_UNNUMBERED_WIDTH_PAGE_RATIO
     FORMULA_PADDING_POINTS = dependencies.FORMULA_PADDING_POINTS
+    FORMULA_OUTPUT_MODE = dependencies.FORMULA_OUTPUT_MODE
     HEADING_CANDIDATE_MAX_BLOCK_LINE_COUNT = dependencies.HEADING_CANDIDATE_MAX_BLOCK_LINE_COUNT
     HEADING_FONT_SIZE_CLUSTER_TOLERANCE_POINTS = dependencies.HEADING_FONT_SIZE_CLUSTER_TOLERANCE_POINTS
     HEADING_LOCAL_BODY_CLUSTER_WEIGHT_RATIO = dependencies.HEADING_LOCAL_BODY_CLUSTER_WEIGHT_RATIO
@@ -1257,6 +1259,7 @@ def process_page_semantics(
             ),
             formula_padding_points=FORMULA_PADDING_POINTS,
             line_is_inside_any_table=line_is_inside_any_table,
+            formula_output_mode=FORMULA_OUTPUT_MODE,
         )
     else:
         page_context.formula_records = []
@@ -1824,6 +1827,7 @@ class DocumentFinalizeDependencies:
     run_debug_output: Any
     run_enable_font_heading_inference: Any
     run_enable_formula_detection: Any
+    run_formula_output_mode: Any
     run_enable_heading_detection: Any
     run_enable_pdf_outline_heading_assignment: Any
     run_force_pure_text_table_to_markdown: Any
@@ -1980,6 +1984,7 @@ def finalize_document_run(*, dependencies: DocumentFinalizeDependencies) -> Any:
     run_debug_output = dependencies.run_debug_output
     run_enable_font_heading_inference = dependencies.run_enable_font_heading_inference
     run_enable_formula_detection = dependencies.run_enable_formula_detection
+    run_formula_output_mode = dependencies.run_formula_output_mode
     run_enable_heading_detection = dependencies.run_enable_heading_detection
     run_enable_pdf_outline_heading_assignment = dependencies.run_enable_pdf_outline_heading_assignment
     run_force_pure_text_table_to_markdown = dependencies.run_force_pure_text_table_to_markdown
@@ -2586,12 +2591,17 @@ def finalize_document_run(*, dependencies: DocumentFinalizeDependencies) -> Any:
             # "default_enabled": True,
             "default_enabled": run_enable_formula_detection,
             "mode": (
-                "render_display_formula_to_png"
-                if run_enable_formula_detection
-                else "disabled"
+                (
+                    run_formula_output_mode
+                    if run_enable_formula_detection
+                    else "disabled"
+                )
             ),
             "ocr": False,
-            "latex_reconstruction": False,
+            "latex_reconstruction": run_formula_output_mode in {
+                "latex",
+                "hybrid",
+            },
             "detection": (
                 "PDF native font/symbol structure, same-column vertical "
                 "clustering, and equation-number anchors"
@@ -2599,8 +2609,8 @@ def finalize_document_run(*, dependencies: DocumentFinalizeDependencies) -> Any:
                 else "disabled"
             ),
             "text_deduplication": (
-                "remove only native PDF line boxes owned by the rendered "
-                "formula image"
+                "remove only native PDF line boxes owned by the formula "
+                "output region"
                 if run_enable_formula_detection
                 else "disabled"
             ),
@@ -2937,6 +2947,7 @@ def _apply_parse_run_context(context: ParseRunContext) -> None:
     global ENABLE_TABLE_HEADER_DETECTION
     global KEEP_HEADER_TEXT_IN_MARKDOWN
     global ENABLE_FORMULA_DETECTION
+    global FORMULA_OUTPUT_MODE
     global ENABLE_PDF_OUTLINE_HEADING_ASSIGNMENT
     global FORCE_PURE_TEXT_TABLE_TO_MARKDOWN
 
@@ -2950,6 +2961,7 @@ def _apply_parse_run_context(context: ParseRunContext) -> None:
     ENABLE_TABLE_HEADER_DETECTION = config.enable_table_header_detection
     KEEP_HEADER_TEXT_IN_MARKDOWN = config.keep_header_text
     ENABLE_FORMULA_DETECTION = config.enable_formula_detection
+    FORMULA_OUTPUT_MODE = config.formula_output_mode
     ENABLE_PDF_OUTLINE_HEADING_ASSIGNMENT = (
         config.enable_pdf_outline_heading_assignment
     )
@@ -3179,6 +3191,8 @@ HEADER_TEXT_OVERLAP_THRESHOLD = 0.50
 
 ENABLE_FORMULA_DETECTION = True
 
+FORMULA_OUTPUT_MODE = "image"
+
 
 FORMULA_IMAGE_DPI = 200
 
@@ -3213,6 +3227,7 @@ def main(context: ParseRunContext | None = None) -> ParseResult:
     run_enable_font_heading_inference = ENABLE_FONT_HEADING_INFERENCE
     run_keep_header_text = KEEP_HEADER_TEXT_IN_MARKDOWN
     run_enable_formula_detection = ENABLE_FORMULA_DETECTION
+    run_formula_output_mode = FORMULA_OUTPUT_MODE
     run_enable_pdf_outline_heading_assignment = (
         ENABLE_PDF_OUTLINE_HEADING_ASSIGNMENT
     )
@@ -3503,6 +3518,7 @@ def main(context: ParseRunContext | None = None) -> ParseResult:
         FORMULA_IMAGE_DPI=FORMULA_IMAGE_DPI,
         FORMULA_MIN_UNNUMBERED_WIDTH_PAGE_RATIO=FORMULA_MIN_UNNUMBERED_WIDTH_PAGE_RATIO,
         FORMULA_PADDING_POINTS=FORMULA_PADDING_POINTS,
+        FORMULA_OUTPUT_MODE=run_formula_output_mode,
         GAPTREE_DEBUG_DPI=GAPTREE_DEBUG_DPI,
         HEADER_FOOTER_BAND_PADDING_POINTS=HEADER_FOOTER_BAND_PADDING_POINTS,
         HEADER_FOOTER_CANDIDATE_COUNT=HEADER_FOOTER_CANDIDATE_COUNT,
@@ -3735,6 +3751,7 @@ def main(context: ParseRunContext | None = None) -> ParseResult:
             run_debug_output=run_debug_output,
             run_enable_font_heading_inference=run_enable_font_heading_inference,
             run_enable_formula_detection=run_enable_formula_detection,
+            run_formula_output_mode=run_formula_output_mode,
             run_enable_heading_detection=run_enable_heading_detection,
             run_enable_pdf_outline_heading_assignment=run_enable_pdf_outline_heading_assignment,
             run_force_pure_text_table_to_markdown=run_force_pure_text_table_to_markdown,
