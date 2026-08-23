@@ -2,6 +2,10 @@
 
 **简体中文** | [English](README_EN.md)
 
+[![PyPI v0.1.0](https://img.shields.io/badge/pypi-v0.1.0-3775A9?logo=pypi&logoColor=white)](https://pypi.org/project/nativePDF-structurer/)
+[![Python 3.12 | 3.13 | 3.14](https://img.shields.io/badge/python-3.12%20%7C%203.13%20%7C%203.14-3776AB?logo=python&logoColor=white)](https://www.python.org/)
+[![Tests](https://github.com/crunz-ai/nativePDF-structurer/actions/workflows/tests.yml/badge.svg)](https://github.com/crunz-ai/nativePDF-structurer/actions/workflows/tests.yml)
+
 一个面向大体量数字原生 PDF 的、零 OCR、零模型依赖的文档结构化工具。
 
 项目主要服务于厂商发布的技术文档，例如设备操作手册、维修手册、安装说明、
@@ -160,7 +164,7 @@ Ghostscript 或外部文档服务。
 ### 环境要求
 
 - Python 3.12 或更高版本；
-- 当前验证环境为 Python 3.12.13。
+- CI 当前覆盖 Python 3.12、3.13 和 3.14；本地回归基线为 Python 3.12.13。
 
 | 组件 | 验证版本 | 用途 |
 |---|---:|---|

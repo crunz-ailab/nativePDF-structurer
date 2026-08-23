@@ -2,6 +2,10 @@
 
 [简体中文](README.md) | **English**
 
+[![PyPI v0.1.0](https://img.shields.io/badge/pypi-v0.1.0-3775A9?logo=pypi&logoColor=white)](https://pypi.org/project/nativePDF-structurer/)
+[![Python 3.12 | 3.13 | 3.14](https://img.shields.io/badge/python-3.12%20%7C%203.13%20%7C%203.14-3776AB?logo=python&logoColor=white)](https://www.python.org/)
+[![Tests](https://github.com/crunz-ai/nativePDF-structurer/actions/workflows/tests.yml/badge.svg)](https://github.com/crunz-ai/nativePDF-structurer/actions/workflows/tests.yml)
+
 A zero-OCR, zero-model document structuring tool for large digital-native PDF
 documents.
 
@@ -195,7 +199,8 @@ text found inside the figure, and a link to the table data:
 ### Requirements
 
 - Python 3.12 or newer;
-- the current validated environment uses Python 3.12.13.
+- CI currently covers Python 3.12, 3.13, and 3.14; the local regression
+  baseline uses Python 3.12.13.
 
 | Component | Validated version | Purpose |
 |---|---:|---|
