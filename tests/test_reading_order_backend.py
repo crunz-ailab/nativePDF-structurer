@@ -10,6 +10,7 @@ from nativePDF_structurer.reading_order_backend import (
     attach_narrow_text_domains_by_rows,
     coalesce_horizontal_text_fragments,
     create_reading_order_backend,
+    pair_repeated_same_row_columns,
     reparent_cross_column_leading_row,
     split_gap_tree_nodes_by_horizontal_gaps,
     sort_lines_in_reading_order,
@@ -404,6 +405,145 @@ class ReadingOrderBackendTests(unittest.TestCase):
         self.assertEqual(
             [[element["text"] for element in group] for group in corrected],
             [["普通正文"], ["另一段正文"]],
+        )
+
+    # 覆盖章节目录中“左侧章节编号 + 右侧标题”的逐行配对场景。
+    def test_pairs_repeated_same_row_columns_for_chapter_list(self) -> None:
+        left_column = [
+            self._text(f"第{index}章", 157, y, 199, y + 10)
+            for index, y in enumerate((100, 130, 160, 190), start=1)
+        ]
+        right_column = [
+            self._text(text, 211, y, x1, y + 10)
+            for text, y, x1 in (
+                ("投标邀请", 100, 390),
+                ("项目说明与要求", 130, 430),
+                ("技术参数", 160, 350),
+                ("合同条款", 190, 410),
+            )
+        ]
+        groups, metadata = pair_repeated_same_row_columns(
+            [
+                [self._text("目录", 100, 60, 500, 70)],
+                left_column,
+                right_column,
+                [self._text("正文开始", 100, 230, 500, 240)],
+            ],
+            fitz.Rect(0, 0, 600, 800),
+            row_tolerance_points=3.0,
+        )
+
+        self.assertTrue(metadata["enabled"])
+        self.assertEqual(metadata["merged_pair_count"], 1)
+        self.assertEqual(len(groups), 3)
+        self.assertEqual(
+            [element["text"] for element in groups[1]],
+            [
+                "第1章", "投标邀请",
+                "第2章", "项目说明与要求",
+                "第3章", "技术参数",
+                "第4章", "合同条款",
+            ],
+        )
+
+    # 覆盖多级序号列宽略窄但超过旧窄列阈值的步骤说明场景。
+    def test_pairs_multilevel_numbered_rows(self) -> None:
+        left_column = [
+            self._text("11.2.1", 139.1, 100, 172.436, 110),
+            self._text("11.2.2", 139.1, 130, 172.436, 140),
+        ]
+        right_column = [
+            self._text("拆下前面板", 184.1, 100, 320, 110),
+            self._text("断开风扇连接器", 184.1, 130, 360, 140),
+        ]
+        groups, metadata = pair_repeated_same_row_columns(
+            [
+                [self._text("步骤", 100, 70, 500, 80)],
+                left_column,
+                right_column,
+                [self._text("后续操作", 100, 170, 500, 180)],
+            ],
+            fitz.Rect(0, 0, 600, 800),
+            row_tolerance_points=3.0,
+        )
+
+        self.assertTrue(metadata["enabled"])
+        self.assertEqual(
+            [element["text"] for element in groups[1]],
+            ["11.2.1", "拆下前面板", "11.2.2", "断开风扇连接器"],
+        )
+
+    # 覆盖一条左侧序号对应右侧多行换行说明的真实页面结构。
+    def test_pairs_numbered_rows_with_wrapped_right_text(self) -> None:
+        left_column = [
+            self._text("11.2.1", 139.1, 100, 172.436, 110),
+            self._text("11.2.2", 139.1, 160, 172.436, 170),
+        ]
+        right_column = [
+            self._text("出厂价及附件费用", 184.1, 100, 360, 110),
+            self._text("和运至最终目的地的运输费", 184.1, 115, 360, 125),
+            self._text("安装调试、检验和服务费", 184.1, 130, 360, 140),
+            self._text("按照招标文件完成全部费用", 184.1, 160, 360, 170),
+        ]
+        groups, metadata = pair_repeated_same_row_columns(
+            [
+                [self._text("步骤说明", 100, 70, 500, 80)],
+                left_column,
+                right_column,
+                [self._text("后续正文", 100, 210, 500, 220)],
+            ],
+            fitz.Rect(0, 0, 600, 800),
+            row_tolerance_points=3.0,
+        )
+
+        self.assertTrue(metadata["enabled"])
+        self.assertEqual(metadata["pairs"][0]["row_count"], 2)
+        self.assertEqual(
+            [element["text"] for element in groups[1]],
+            [
+                "11.2.1",
+                "出厂价及附件费用",
+                "和运至最终目的地的运输费",
+                "安装调试、检验和服务费",
+                "11.2.2",
+                "按照招标文件完成全部费用",
+            ],
+        )
+        self.assertTrue(
+            all(
+                element.get("narrow_domain_row_group")
+                and element.get("same_row_column_pair")
+                for element in groups[1]
+            )
+        )
+
+    # 防止把真正从页面边缘开始的双栏正文误合并为逐行列表。
+    def test_does_not_pair_outer_two_column_body_text(self) -> None:
+        left_column = [
+            self._text("左栏一行", 10, 100, 90, 110),
+            self._text("左栏二行", 10, 130, 90, 140),
+        ]
+        right_column = [
+            self._text("右栏一行", 110, 100, 190, 110),
+            self._text("右栏二行", 110, 130, 190, 140),
+        ]
+        original = [
+            [self._text("上方正文", 10, 70, 190, 80)],
+            left_column,
+            right_column,
+            [self._text("下方正文", 10, 170, 190, 180)],
+        ]
+        groups, metadata = pair_repeated_same_row_columns(
+            original,
+            fitz.Rect(0, 0, 200, 300),
+            row_tolerance_points=3.0,
+        )
+
+        self.assertFalse(metadata["enabled"])
+        self.assertEqual(metadata["reason"], "no_accepted_pair")
+        self.assertEqual(
+            [[element["text"] for element in group] for group in groups],
+            [[element["text"] for element in group] for group in original],
         )
 
     def test_coalesces_stable_bimodal_fragments(self) -> None:

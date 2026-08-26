@@ -648,6 +648,536 @@ def attach_narrow_text_domains_by_rows(
         "merges": merge_metadata,
     }
 
+# 章节目录和步骤清单有时会被 GapTree 分成两个完整节点：左侧是稳定的编号列，右侧是对应说明。
+# 这里仅在 GapTree 完成后依据重复行的几何关系合并两个节点，避免把后端切分逻辑
+# 与特定版式的阅读顺序修复耦合。
+def pair_repeated_same_row_columns(
+    node_groups: list[list[dict]],
+    page_rect: fitz.Rect,
+    *,
+    row_tolerance_points: float,
+) -> tuple[list[list[dict]], dict]:
+    """合并逐行对应的窄左列与右侧说明列。
+
+    该阶段只处理已经由空间后端生成的节点。候选列必须有多行稳定的
+    X 锚点，左右每一行都要有足够的 Y 重叠，列间不能夹着第三个文本
+    节点；同时左列必须位于上下文正文的内部，避免把真正的整页双栏
+    正文重新合并。没有满足全部条件时，原节点结构和顺序保持不变。
+    """
+    copied_groups = [list(group) for group in node_groups]
+    intra_node_pair_count = 0
+    intra_node_element_ids: set[int] = set()
+    intra_node_pair_records: list[dict] = []
+
+    def base_metadata(reason: str, *, enabled: bool = False) -> dict:
+        return {
+            "enabled": enabled,
+            "reason": reason,
+            "candidate_pair_count": 0,
+            "merged_pair_count": 0,
+            "merged_node_count": 0,
+            "merged_element_count": 0,
+            "intra_node_pair_count": 0,
+            "intra_node_pairs": [],
+            "median_text_height": round(median_text_height, 3),
+            "anchor_tolerance": round(anchor_tolerance, 3),
+            "pair_gap_threshold": round(pair_gap_threshold, 3),
+            "context_tolerance": round(context_tolerance, 3),
+            "context_gap_limit": round(context_gap_limit, 3),
+            "pairs": [],
+        }
+
+    if not copied_groups:
+        median_text_height = 1.0
+        anchor_tolerance = 1.0
+        pair_gap_threshold = 1.0
+        context_tolerance = 1.0
+        context_gap_limit = 1.0
+        return [], base_metadata("no_gap_tree_nodes")
+
+    text_elements = [
+        element
+        for group in copied_groups
+        for element in group
+        if element.get("kind", "text") == "text"
+    ]
+    text_heights = [
+        element["gaptree_bbox"][3] - element["gaptree_bbox"][1]
+        for element in text_elements
+        if element["gaptree_bbox"][3] > element["gaptree_bbox"][1]
+    ]
+    median_text_height = (
+        float(np.median(text_heights))
+        if text_heights
+        else max(page_rect.height * 0.01, 1.0)
+    )
+    anchor_tolerance = max(
+        median_text_height * 0.60,
+        page_rect.width * 0.004,
+    )
+    pair_gap_threshold = max(
+        median_text_height * 2.0,
+        page_rect.width * 0.025,
+    )
+    context_tolerance = max(
+        median_text_height * 0.50,
+        1.0,
+    )
+    context_gap_limit = max(
+        median_text_height * 8.0,
+        page_rect.height * 0.20,
+    )
+
+    if not text_elements:
+        return copied_groups, base_metadata("no_text_elements")
+
+    def rect_for(element: dict) -> fitz.Rect:
+        return fitz.Rect(element["gaptree_bbox"])
+
+    def center_y(element: dict) -> float:
+        rect = rect_for(element)
+        return (rect.y0 + rect.y1) / 2.0
+
+    def build_rows(elements: list[dict]) -> list[list[dict]]:
+        rows: list[list[dict]] = []
+        row_centers: list[float] = []
+        row_tolerance = max(
+            row_tolerance_points,
+            median_text_height * 0.65,
+        )
+        for element in sorted(elements, key=center_y):
+            element_center_y = center_y(element)
+            if (
+                not rows
+                or abs(element_center_y - row_centers[-1])
+                > row_tolerance
+            ):
+                rows.append([element])
+                row_centers.append(element_center_y)
+            else:
+                rows[-1].append(element)
+                row_centers[-1] = float(
+                    np.median([center_y(item) for item in rows[-1]])
+                )
+        for row in rows:
+            row.sort(key=lambda item: rect_for(item).x0)
+        return rows
+
+    def union_bbox(elements: list[dict]) -> fitz.Rect:
+        result = rect_for(elements[0])
+        for element in elements[1:]:
+            result |= rect_for(element)
+        return result
+
+    def vertical_overlap_ratio(first: fitz.Rect, second: fitz.Rect) -> float:
+        overlap = max(0.0, min(first.y1, second.y1) - max(first.y0, second.y0))
+        minimum_height = min(first.height, second.height)
+        return overlap / minimum_height if minimum_height > 0 else 0.0
+
+    # 同一 GapTree 节点也可能同时包含左侧型号和右侧说明（例如产品目录的首行）。
+    # 先修正这些同行元素的 x 顺序并共享 Markdown 行，避免只依赖节点间配对。
+    for group_index, group in enumerate(copied_groups):
+        if (
+            not group
+            or any(element.get("kind", "text") != "text" for element in group)
+        ):
+            continue
+        rows = build_rows(group)
+        reordered_group: list[dict] = []
+        for row in rows:
+            ordered_row = sorted(row, key=lambda element: rect_for(element).x0)
+            pair_found = False
+            for left_element, right_element in zip(
+                ordered_row,
+                ordered_row[1:],
+            ):
+                left_bbox = rect_for(left_element)
+                right_bbox = rect_for(right_element)
+                horizontal_gap = right_bbox.x0 - left_bbox.x1
+                overlap_ratio = vertical_overlap_ratio(
+                    left_bbox,
+                    right_bbox,
+                )
+                if (
+                    horizontal_gap <= 0
+                    or horizontal_gap > pair_gap_threshold
+                    or overlap_ratio < 0.50
+                ):
+                    continue
+                if not pair_found:
+                    intra_node_pair_count += 1
+                    pair_found = True
+                    pair_virtual_y = (
+                        left_bbox.y0 + left_bbox.y1
+                    ) / 2.0
+                    intra_node_pair_records.append(
+                        {
+                            "node_index": group_index + 1,
+                            "left_text": left_element.get("text", ""),
+                            "right_text": right_element.get("text", ""),
+                            "horizontal_gap": round(horizontal_gap, 3),
+                            "vertical_overlap_ratio": round(
+                                overlap_ratio,
+                                3,
+                            ),
+                        }
+                    )
+                else:
+                    pair_virtual_y = (
+                        left_bbox.y0 + left_bbox.y1
+                    ) / 2.0
+                for element in (left_element, right_element):
+                    intra_node_element_ids.add(id(element))
+                    element["narrow_domain_row_group"] = True
+                    element["virtual_y"] = pair_virtual_y
+                    element["same_row_column_pair"] = True
+                    element["same_row_column_pair_index"] = (
+                        f"intra-{intra_node_pair_count}"
+                    )
+                    element["same_row_column_pair_row"] = 1
+            reordered_group.extend(ordered_row)
+        if reordered_group:
+            copied_groups[group_index] = reordered_group
+
+    def include_intra_node_metadata(metadata: dict) -> dict:
+        metadata["intra_node_pair_count"] = intra_node_pair_count
+        metadata["intra_node_pairs"] = intra_node_pair_records
+        # 同节点配对不会移动元素，但仍应在审计中记录被同行关系覆盖的元素数量。
+        metadata["merged_element_count"] += len(intra_node_element_ids)
+        if intra_node_pair_count:
+            metadata["enabled"] = True
+            if metadata["reason"] in {
+                "fewer_than_two_stable_text_nodes",
+                "no_accepted_pair",
+                "all_candidates_share_nodes",
+            }:
+                metadata["reason"] = "same_node_rows_paired"
+            metadata["merged_pair_count"] += intra_node_pair_count
+        return metadata
+
+    group_records: list[dict] = []
+    for group_index, group in enumerate(copied_groups):
+        group_text = [
+            element
+            for element in group
+            if element.get("kind", "text") == "text"
+        ]
+        # 只对纯文本节点做配对，避免把图片、表格或视觉簇带入阅读顺序修复。
+        if len(group_text) < 2 or len(group_text) != len(group):
+            continue
+        rows = build_rows(group_text)
+        if len(rows) < 2:
+            continue
+        row_bboxes = [union_bbox(row) for row in rows]
+        left_x0_values = [bbox.x0 for bbox in row_bboxes]
+        left_x1_values = [bbox.x1 for bbox in row_bboxes]
+        if max(left_x0_values) - min(left_x0_values) > anchor_tolerance:
+            # 该节点不是稳定列，通常是普通段落或自由排版文本。
+            continue
+        group_records.append(
+            {
+                "group_index": group_index,
+                "rows": rows,
+                "row_bboxes": row_bboxes,
+                "bbox": union_bbox(group_text),
+                "anchor_x0": float(np.median(left_x0_values)),
+                "x1_spread": max(left_x1_values) - min(left_x1_values),
+            }
+        )
+
+    if len(group_records) < 2:
+        return copied_groups, include_intra_node_metadata(
+            base_metadata("fewer_than_two_stable_text_nodes")
+        )
+
+    all_rows: list[dict] = []
+    for group_index, group in enumerate(copied_groups):
+        for row in build_rows(
+            [
+                element
+                for element in group
+                if element.get("kind", "text") == "text"
+            ]
+        ):
+            all_rows.append(
+                {
+                    "group_index": group_index,
+                    "elements": row,
+                    "bbox": union_bbox(row),
+                }
+            )
+
+    def context_bbox_for(
+        excluded_group_indices: set[int],
+        candidate_bbox: fitz.Rect,
+    ) -> fitz.Rect | None:
+        context_rows = [
+            row
+            for row in all_rows
+            if row["group_index"] not in excluded_group_indices
+        ]
+        above = [
+            row
+            for row in context_rows
+            if row["bbox"].y1 <= candidate_bbox.y0
+            and candidate_bbox.y0 - row["bbox"].y1 <= context_gap_limit
+        ]
+        below = [
+            row
+            for row in context_rows
+            if row["bbox"].y0 >= candidate_bbox.y1
+            and row["bbox"].y0 - candidate_bbox.y1 <= context_gap_limit
+        ]
+        nearest_rows: list[dict] = []
+        if above:
+            nearest_rows.append(max(above, key=lambda row: row["bbox"].y1))
+        if below:
+            nearest_rows.append(min(below, key=lambda row: row["bbox"].y0))
+        if not nearest_rows:
+            return None
+        return union_bbox(
+            [element for row in nearest_rows for element in row["elements"]]
+        )
+
+    # 右列一条说明可能因换行产生多条文本行；按左列相邻行中心的中点
+    # 把这些行分配给对应编号，同时要求每个编号至少有一个垂直重叠的右列锚点。
+    def pair_left_rows_with_right_rows(
+        left_rows: list[list[dict]],
+        right_rows: list[list[dict]],
+    ) -> list[dict] | None:
+        if len(left_rows) < 2 or len(right_rows) < len(left_rows):
+            return None
+        left_row_bboxes = [union_bbox(row) for row in left_rows]
+        left_centers = [
+            (bbox.y0 + bbox.y1) / 2.0 for bbox in left_row_bboxes
+        ]
+        assignments: list[list[list[dict]]] = [
+            [] for _ in left_rows
+        ]
+        for right_row in right_rows:
+            right_bbox = union_bbox(right_row)
+            right_center = (right_bbox.y0 + right_bbox.y1) / 2.0
+            target_index = 0
+            while (
+                target_index + 1 < len(left_centers)
+                and right_center
+                > (
+                    left_centers[target_index]
+                    + left_centers[target_index + 1]
+                )
+                / 2.0
+            ):
+                target_index += 1
+            assignments[target_index].append(right_row)
+
+        if any(not rows for rows in assignments):
+            return None
+
+        row_pairs: list[dict] = []
+        for left_row, assigned_rows in zip(left_rows, assignments):
+            left_bbox = union_bbox(left_row)
+            right_elements = [
+                element
+                for row in assigned_rows
+                for element in row
+            ]
+            right_bbox = union_bbox(right_elements)
+            anchor_overlap_ratio = max(
+                vertical_overlap_ratio(
+                    left_bbox,
+                    union_bbox(right_row),
+                )
+                for right_row in assigned_rows
+            )
+            horizontal_gap = right_bbox.x0 - left_bbox.x1
+            if (
+                anchor_overlap_ratio < 0.50
+                or horizontal_gap <= 0
+                or horizontal_gap > pair_gap_threshold
+            ):
+                return None
+            row_pairs.append(
+                {
+                    "left": left_row,
+                    "right": right_elements,
+                    "left_bbox": left_bbox,
+                    "right_bbox": right_bbox,
+                    "overlap_ratio": anchor_overlap_ratio,
+                    "horizontal_gap": horizontal_gap,
+                }
+            )
+        return row_pairs
+
+    candidate_pairs: list[dict] = []
+    for left_position, first in enumerate(group_records):
+        for second in group_records[left_position + 1 :]:
+            left, right = (
+                (first, second)
+                if first["bbox"].x0 < second["bbox"].x0
+                else (second, first)
+            )
+            if left["x1_spread"] > anchor_tolerance:
+                # 左侧编号/标签列的右边界也应稳定；右侧说明列允许自然换行
+                # 或不同长度，因此只要求它的左边界稳定。
+                continue
+            if left["bbox"].x1 >= right["bbox"].x0:
+                continue
+            row_pairs = pair_left_rows_with_right_rows(
+                left["rows"],
+                right["rows"],
+            )
+            if row_pairs is None:
+                continue
+
+            candidate_group_indices = {
+                left["group_index"],
+                right["group_index"],
+            }
+            has_intermediate_text = False
+            for row_pair in row_pairs:
+                left_bbox = row_pair["left_bbox"]
+                right_bbox = row_pair["right_bbox"]
+                for row in all_rows:
+                    if row["group_index"] in candidate_group_indices:
+                        continue
+                    other_bbox = row["bbox"]
+                    if vertical_overlap_ratio(left_bbox, other_bbox) < 0.50:
+                        continue
+                    other_center_x = (other_bbox.x0 + other_bbox.x1) / 2.0
+                    if left_bbox.x1 < other_center_x < right_bbox.x0:
+                        has_intermediate_text = True
+                        break
+                if has_intermediate_text:
+                    break
+            if has_intermediate_text:
+                continue
+
+            candidate_bbox = left["bbox"] | right["bbox"]
+            context_bbox = context_bbox_for(
+                candidate_group_indices,
+                candidate_bbox,
+            )
+            if context_bbox is None:
+                continue
+            left_bbox = left["bbox"]
+            if (
+                left_bbox.x0 <= context_bbox.x0 + context_tolerance
+                or left_bbox.x1 >= context_bbox.x1 - context_tolerance
+            ):
+                # 左列贴在上下文正文外边缘时，更像真正的双栏正文。
+                continue
+
+            candidate_pairs.append(
+                {
+                    "left": left,
+                    "right": right,
+                    "row_pairs": row_pairs,
+                    "context_bbox": context_bbox,
+                    "score": (
+                        sum(item["horizontal_gap"] for item in row_pairs)
+                        / len(row_pairs),
+                        -len(row_pairs),
+                    ),
+                }
+            )
+
+    metadata = base_metadata(
+        "same_row_column_pairs_merged" if candidate_pairs else "no_accepted_pair",
+        enabled=bool(candidate_pairs),
+    )
+    metadata["candidate_pair_count"] = len(candidate_pairs)
+    if not candidate_pairs:
+        return copied_groups, include_intra_node_metadata(metadata)
+
+    selected_pairs: list[dict] = []
+    claimed_group_indices: set[int] = set()
+    for pair in sorted(candidate_pairs, key=lambda item: item["score"]):
+        left_index = pair["left"]["group_index"]
+        right_index = pair["right"]["group_index"]
+        if left_index in claimed_group_indices or right_index in claimed_group_indices:
+            continue
+        selected_pairs.append(pair)
+        claimed_group_indices.update((left_index, right_index))
+
+    if not selected_pairs:
+        metadata["reason"] = "all_candidates_share_nodes"
+        return copied_groups, include_intra_node_metadata(metadata)
+
+    replacements: dict[int, list[dict]] = {}
+    pair_metadata: list[dict] = []
+    for pair_index, pair in enumerate(
+        selected_pairs,
+        start=intra_node_pair_count + 1,
+    ):
+        merged_elements: list[dict] = []
+        for row_index, row_pair in enumerate(pair["row_pairs"], start=1):
+            # 配对后的左右文本必须共享一个 Markdown 阅读行；右列换行内容
+            # 也继承左列锚点的 virtual_y，避免产品目录中的型号和说明被拆成两行。
+            pair_anchor_y = (
+                sum(
+                    element["gaptree_bbox"][1]
+                    + element["gaptree_bbox"][3]
+                    for element in row_pair["left"]
+                )
+                / (2.0 * len(row_pair["left"]))
+            )
+            row_elements = sorted(
+                row_pair["left"] + row_pair["right"],
+                key=lambda element: rect_for(element).x0,
+            )
+            for element in row_elements:
+                element["narrow_domain_row_group"] = True
+                element["virtual_y"] = pair_anchor_y
+                element["same_row_column_pair"] = True
+                element["same_row_column_pair_index"] = pair_index
+                element["same_row_column_pair_row"] = row_index
+            merged_elements.extend(row_elements)
+
+        insertion_index = min(
+            pair["left"]["group_index"],
+            pair["right"]["group_index"],
+        )
+        replacements[insertion_index] = merged_elements
+        pair_metadata.append(
+            {
+                "left_node_index": pair["left"]["group_index"] + 1,
+                "right_node_index": pair["right"]["group_index"] + 1,
+                "row_count": len(pair["row_pairs"]),
+                "left_bbox": [round(value, 3) for value in pair["left"]["bbox"]],
+                "right_bbox": [round(value, 3) for value in pair["right"]["bbox"]],
+                "context_bbox": [
+                    round(value, 3) for value in pair["context_bbox"]
+                ],
+                "row_gaps": [
+                    round(item["horizontal_gap"], 3)
+                    for item in pair["row_pairs"]
+                ],
+                "row_overlap_ratios": [
+                    round(item["overlap_ratio"], 3)
+                    for item in pair["row_pairs"]
+                ],
+            }
+        )
+
+    merged_groups: list[list[dict]] = []
+    for group_index, group in enumerate(copied_groups):
+        if group_index in replacements:
+            merged_groups.append(replacements[group_index])
+        elif group_index in claimed_group_indices:
+            continue
+        else:
+            merged_groups.append(group)
+
+    metadata["merged_pair_count"] = len(selected_pairs)
+    metadata["merged_node_count"] = len(selected_pairs) * 2
+    metadata["merged_element_count"] = sum(
+        sum(len(row) for row in pair["left"]["rows"])
+        + sum(len(row) for row in pair["right"]["rows"])
+        for pair in selected_pairs
+    )
+    metadata["pairs"] = pair_metadata
+    return merged_groups, include_intra_node_metadata(metadata)
+
 import math
 import numpy as np
 
@@ -1878,6 +2408,15 @@ def sort_elements_with_gap_tree(
             row_tolerance_points=TEXT_ROW_TOLERANCE_POINTS,
         )
     )
+    # GapTree 之后单独配对重复的左右文本列，修复章节和步骤列表的逐行阅读顺序。
+    # 这一步不改动后端节点切分，也不会处理包含图片或视觉区域的节点。
+    node_groups, same_row_column_pairing = (
+        pair_repeated_same_row_columns(
+            node_groups=node_groups,
+            page_rect=page_rect,
+            row_tolerance_points=TEXT_ROW_TOLERANCE_POINTS,
+        )
+    )
     node_groups, cross_column_leading_row = (
         reparent_cross_column_leading_row(
             node_groups=node_groups,
@@ -1996,6 +2535,7 @@ def sort_elements_with_gap_tree(
         "nodes": nodes,
         "fragment_merge": fragment_merge_metadata,
         "column_anchor_correction": column_anchor_correction,
+        "same_row_column_pairing": same_row_column_pairing,
         "cross_column_leading_row": cross_column_leading_row,
         "horizontal_partition": horizontal_partition,
         "attached_separator_heading_order": (
