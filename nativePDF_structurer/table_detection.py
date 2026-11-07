@@ -541,6 +541,9 @@ def detect_geometry_fallback_tables(
             bbox=candidate_bbox,
             data=data,
             metadata={
+                # 保存已算出的网格边界，供候选合并验证，避免重新扫描图元。
+                "column_positions": [candidate_bbox.x0, *separator_positions, candidate_bbox.x1],
+                "row_positions": list(horizontal_positions),
                 "horizontal_rule_count": len(horizontal_positions),
                 "separator_count": len(separator_positions),
                 "merged_vertical_segment_count": sum(
@@ -702,6 +705,9 @@ def detect_simple_cluster_frame_tables(
                 bbox=candidate_bbox,
                 data=data,
                 metadata={
+                    # 局部框也需提供行列坐标；行数本身不能证明两个片段相连。
+                    "column_positions": [candidate_bbox.x0, *separator_positions, candidate_bbox.x1],
+                    "row_positions": list(positions),
                     "horizontal_rule_count": len(positions),
                     "separator_count": len(separator_positions),
                     "populated_row_count": populated_rows,
@@ -740,7 +746,8 @@ def detect_tables_by_drawing_clusters(
 ) -> tuple[list, dict, list[dict]]:
     """按初始空间簇检测原生表格和局部规则线表格。"""
     if len(drawings) <= cluster_table_drawing_budget:
-        native_tables = page.find_tables(paths=drawings).tables
+        # 只使用原生文字与规则线；不让布局模型筛选或补充表格候选。
+        native_tables = page.find_tables(paths=drawings, use_layout=False).tables
         for table in native_tables:
             table.source_cluster_bbox = fitz.Rect(page.rect)
         native_tables = [
@@ -784,6 +791,8 @@ def detect_tables_by_drawing_clusters(
         combined_tables = combine_native_and_fallback_tables(
             native_tables=native_tables,
             fallback_tables=fallback_tables,
+            # 合并判定与规则线检测共用对齐容差。
+            alignment_tolerance_points=table_structure_dependencies.alignment_tolerance_points,
             max_vertical_break_points=(
                 fallback_table_max_vertical_break_points
             ),
@@ -896,7 +905,8 @@ def detect_tables_by_drawing_clusters(
             skeleton_selection_modes["whole_cluster_under_budget"] += 1
         tested_drawing_count += len(tested_drawings)
 
-        native_tables = page.find_tables(paths=tested_drawings).tables
+        # 簇级检测也保持无模型路径，与整页检测使用相同的输入约定。
+        native_tables = page.find_tables(paths=tested_drawings, use_layout=False).tables
         native_tables = [
             table
             for table in native_tables
@@ -957,6 +967,8 @@ def detect_tables_by_drawing_clusters(
         cluster_tables = combine_native_and_fallback_tables(
             native_tables=native_tables,
             fallback_tables=fallback_tables,
+            # 簇级与整页级采用同一空间关系判定。
+            alignment_tolerance_points=table_structure_dependencies.alignment_tolerance_points,
             max_vertical_break_points=(
                 fallback_table_max_vertical_break_points
             ),

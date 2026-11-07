@@ -2,7 +2,7 @@
 
 **简体中文** | [English](README_EN.md)
 
-[![PyPI v0.1.0](https://img.shields.io/badge/pypi-v0.1.0-3775A9?logo=pypi&logoColor=white)](https://pypi.org/project/nativePDF-structurer/)
+[![PyPI](https://img.shields.io/pypi/v/nativePDF-structurer?logo=pypi&logoColor=white)](https://pypi.org/project/nativePDF-structurer/)
 [![Python 3.12 | 3.13 | 3.14](https://img.shields.io/badge/python-3.12%20%7C%203.13%20%7C%203.14-3776AB?logo=python&logoColor=white)](https://www.python.org/)
 [![Tests](https://github.com/crunz-ai/nativePDF-structurer/actions/workflows/tests.yml/badge.svg)](https://github.com/crunz-ai/nativePDF-structurer/actions/workflows/tests.yml)
 
@@ -159,6 +159,20 @@ Ghostscript 或外部文档服务。
 [CSV data](tables/page_017_table_01_rotated_+0.csv)
 ```
 
+## 0.1.1 更新
+
+- 优先消解同一区域或包含关系的表格候选，避免重复追加整份表格数据。
+- 完整的几何补检候选可一次替换多个被覆盖的片段；仅拼接无重叠且行列边界吻合的上下片段。
+- 保留位于不同空间行的相同内容，并在调试记录中提供候选选择理由。
+- 阅读顺序算法不变；PDF 引擎升级至正式版 PyMuPDF 2.1，使用不带布局模型的
+  官方核心发行包 `pymupdf-lite==2.1`，不再维护 1.x 兼容路径。
+
+另已在 PyMuPDF 固定源码提交
+[`28b271b`](https://github.com/pymupdf/PyMuPDF/commit/28b271bbfb42d13a084346d255d3b8b2e3b96544)
+上完成回归验证。该源码环境包含上游坐标修复，但正式发布的 2.1 尚未包含
+这些修复，因此两者的表格结果可能不同。包含这些修复的正式版依赖将在后续
+单独验证和升级；本项目不内置 PyMuPDF 补丁。
+
 ## 安装
 
 ### 环境要求
@@ -168,12 +182,18 @@ Ghostscript 或外部文档服务。
 
 | 组件 | 验证版本 | 用途 |
 |---|---:|---|
-| PyMuPDF | 1.28.0 | PDF 文字、图片、绘图、表格和渲染 |
+| PyMuPDF（`pymupdf-lite`） | 2.1 | PDF 文字、图片、绘图、表格和渲染 |
 | NumPy | 2.5.1 | 掩码和几何数组 |
 | OpenCV headless | 5.0.0.93 | 形态学处理和连通域 |
 | Pillow | 12.3.0 | 图片输出和调试覆盖层 |
 
+项目使用官方 `pymupdf-lite` 核心包，导入名称仍为 `pymupdf` / `fitz`，
+不安装布局模型或 ONNX Runtime。表格检测显式关闭模型布局分析。
+
 > [!CAUTION]
+> 请在独立环境安装，不要同时安装 `pymupdf`、`pymupdf-mid` 和 `pymupdf-lite`，
+> 它们提供相同的核心导入模块，混装可能覆盖文件。
+>
 > OpenCV 只应安装 `opencv-python-headless`。不要同时安装其他提供 `cv2` 模块的
 > OpenCV 发行包，否则可能发生模块覆盖或二进制依赖冲突。
 
@@ -219,7 +239,8 @@ python -m nativePDF_structurer --help
 nativePDF-structurer --help
 ```
 
-以上命令应输出版本号 `0.1.0`，并通过模块入口和命令行入口显示帮助信息。
+以上命令应输出源码版本号 `0.1.1`，并通过模块入口和命令行入口显示帮助信息。
+页面顶部的 PyPI 徽章显示已发布到 PyPI 的版本，可能与当前源码版本不同。
 
 ### 运行测试
 

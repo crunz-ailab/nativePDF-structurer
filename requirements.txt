@@ -1,4 +1,4 @@
-PyMuPDF==1.28.0
+pymupdf-lite==2.1
 numpy==2.5.1
 opencv-python-headless==5.0.0.93
 Pillow==12.3.0

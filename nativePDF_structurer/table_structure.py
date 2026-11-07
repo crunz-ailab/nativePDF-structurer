@@ -739,118 +739,199 @@ def combine_native_and_fallback_tables(
     max_vertical_break_points: float,
     native_replacement_overlap_ratio: float,
     native_expansion_area_ratio: float,
+    alignment_tolerance_points: float,
 ) -> list[Any]:
-    """Merge native and geometry-fallback table candidates."""
+    """先消解同域候选，再拼接有几何证据的上下互补片段。
+
+    同域结果优先保留原生单元格结构；完整补检候选可同时替换多个被覆盖的
+    原生片段。整表数据不因行数少或内容相同而相加、删行。部分重叠但不能
+    证明包含关系的候选不在这里拼接，交给既有候选去重阶段处理。
+
+    Resolve alternative detections before joining complementary grid fragments.
+    Reuse the existing coverage, expansion, and alignment policy parameters;
+    row counts and text equality do not establish a spatial relationship.
+    """
 
     combined = list(native_tables)
 
-    def merge_adjacent_fragment(
-        native_table: object,
-        fallback_table: GeometryFallbackTable,
+    def contains_with_alignment(outer: fitz.Rect, inner: fitz.Rect) -> bool:
+        """允许已有规则线对齐误差，但不把一般相交当作包含。"""
+        tolerance = alignment_tolerance_points
+        return (
+            outer.x0 - tolerance <= inner.x0
+            and outer.y0 - tolerance <= inner.y0
+            and outer.x1 + tolerance >= inner.x1
+            and outer.y1 + tolerance >= inner.y1
+        )
+
+    def record_decision(table: Any, decision: str, alternatives: list[Any]) -> None:
+        """保留选择依据，不把审计元数据当作检测分数或新阈值。"""
+        records = list(getattr(table, "candidate_merge_audit", []))
+        records.append({
+            "decision": decision,
+            "selected_bbox": list(table.bbox),
+            "selected_row_count": len(table.extract()),
+            "alternative_bboxes": [list(other.bbox) for other in alternatives],
+            "alternative_row_counts": [len(other.extract()) for other in alternatives],
+        })
+        table.candidate_merge_audit = records
+
+    def grid_positions(table: Any) -> tuple[list[float], list[float]]:
+        """使用已解析的单元格或补检规则坐标，不重新扫描页面图元。"""
+        metadata = getattr(table, "metadata", {}) or {}
+        if "column_positions" in metadata and "row_positions" in metadata:
+            return list(metadata["column_positions"]), list(metadata["row_positions"])
+        x_positions, y_positions = table_cell_boundary_positions(table)
+        return (
+            unique_rule_positions(
+                [{"position": value} for value in x_positions],
+                tolerance=alignment_tolerance_points,
+            ),
+            unique_rule_positions(
+                [{"position": value} for value in y_positions],
+                tolerance=alignment_tolerance_points,
+            ),
+        )
+
+    def merge_complementary_fragments(
+        first: Any, second: GeometryFallbackTable
     ) -> GeometryFallbackTable | None:
-        native_rect = fitz.Rect(native_table.bbox).normalize()
-        fallback_rect = fitz.Rect(fallback_table.bbox).normalize()
-        shorter_width = min(native_rect.width, fallback_rect.width)
-        if shorter_width <= 0:
-            return None
-        x_overlap_width = max(
-            0.0,
-            min(native_rect.x1, fallback_rect.x1)
-            - max(native_rect.x0, fallback_rect.x0),
+        """只拼接不重叠且在相同列网格上共享行边界的片段。"""
+        upper, lower = sorted(
+            (first, second),
+            key=lambda table: (fitz.Rect(table.bbox).y0, fitz.Rect(table.bbox).x0),
         )
-        if x_overlap_width / shorter_width < 0.90:
+        upper_rect, lower_rect = fitz.Rect(upper.bbox), fitz.Rect(lower.bbox)
+        if min(rect_area(upper_rect), rect_area(lower_rect)) <= 0:
+            return None
+        gap = lower_rect.y0 - upper_rect.y1
+        # 行区域有重叠时不能直接相加；间距上限仅作粗筛，共享行边界还需满足对齐容差。
+        if gap < 0 or gap > max_vertical_break_points:
+            return None
+        if gap > alignment_tolerance_points:
             return None
 
-        vertical_gap = max(
-            0.0,
-            max(native_rect.y0, fallback_rect.y0)
-            - min(native_rect.y1, fallback_rect.y1),
-        )
-        vertical_overlap = max(
-            0.0,
-            min(native_rect.y1, fallback_rect.y1)
-            - max(native_rect.y0, fallback_rect.y0),
-        )
-        if vertical_overlap <= 0 and vertical_gap > max_vertical_break_points:
+        upper_columns, upper_rows = grid_positions(upper)
+        lower_columns, lower_rows = grid_positions(lower)
+        upper_data, lower_data = upper.extract(), lower.extract()
+        for columns, rows, data, rect in (
+            (upper_columns, upper_rows, upper_data, upper_rect),
+            (lower_columns, lower_rows, lower_data, lower_rect),
+        ):
+            if not data or len(columns) < 2 or len(rows) != len(data) + 1:
+                return None
+            if any(b <= a for a, b in zip(columns, columns[1:])):
+                return None
+            if any(b <= a for a, b in zip(rows, rows[1:])):
+                return None
+            if any(len(row) != len(columns) - 1 for row in data):
+                return None
+            if (
+                abs(rows[0] - rect.y0) > alignment_tolerance_points
+                or abs(rows[-1] - rect.y1) > alignment_tolerance_points
+            ):
+                return None
+        if len(upper_columns) != len(lower_columns) or any(
+            abs(a - b) > alignment_tolerance_points
+            for a, b in zip(upper_columns, lower_columns)
+        ):
+            return None
+        if not 0 <= lower_rows[0] - upper_rows[-1] <= alignment_tolerance_points:
             return None
 
-        native_data = native_table.extract()
-        fallback_data = fallback_table.extract()
-        native_rows = len(native_data)
-        fallback_rows = len(fallback_data)
-        if native_rows > 3 and fallback_rows > 3:
-            return None
-        if native_rows <= 1 and fallback_rows <= 1:
-            return None
-
-        if native_rect.y0 <= fallback_rect.y0:
-            upper_data, lower_data = native_data, fallback_data
-        else:
-            upper_data, lower_data = fallback_data, native_data
-        if upper_data and lower_data:
-            upper_last = [str(cell or "").strip() for cell in upper_data[-1]]
-            lower_first = [str(cell or "").strip() for cell in lower_data[0]]
-            if upper_last == lower_first:
-                lower_data = lower_data[1:]
-        merged_data = [*upper_data, *lower_data]
-        if not merged_data:
-            return None
-
-        return GeometryFallbackTable(
-            bbox=union_rects([native_rect, fallback_rect]),
-            data=merged_data,
+        # 不同空间行可以具有相同文字；按文字相等去重会误删原表中的合法重复值。
+        merged = GeometryFallbackTable(
+            bbox=union_rects([upper_rect, lower_rect]),
+            data=[*upper_data, *lower_data],
             metadata={
                 "merged_native_fragment": True,
-                "native_bbox": [round(value, 3) for value in native_rect],
-                "fallback_bbox": [round(value, 3) for value in fallback_rect],
-                "native_row_count": native_rows,
-                "fallback_row_count": fallback_rows,
+                "merge_relation": "complementary_nonoverlapping_grid",
+                "column_positions": upper_columns,
+                "row_positions": [*upper_rows, *lower_rows[1:]],
+                "fragment_bboxes": [list(upper.bbox), list(lower.bbox)],
+                "fragment_row_counts": [len(upper_data), len(lower_data)],
             },
             detection_source="merged_native_fragment",
         )
+        # 仅保留两片共同且一致的来源簇，不凭整个页面 bbox 推断它们相连。
+        first_cluster = getattr(first, "source_cluster_bbox", None)
+        second_cluster = getattr(second, "source_cluster_bbox", None)
+        if first_cluster is not None and second_cluster is not None:
+            if fitz.Rect(first_cluster) == fitz.Rect(second_cluster):
+                merged.source_cluster_bbox = fitz.Rect(first_cluster)
+        record_decision(merged, "join_complementary_grid_fragments", [upper, lower])
+        return merged
 
-    for fallback_table in fallback_tables:
-        fallback_rect = fitz.Rect(fallback_table.bbox)
-        matched_index: int | None = None
-        matched_overlap = 0.0
-        fragment_merged = False
-        for index, native_table in enumerate(combined):
-            merged_fragment = merge_adjacent_fragment(
-                native_table,
-                fallback_table,
-            )
-            if merged_fragment is None:
-                continue
-            combined[index] = merged_fragment
-            fragment_merged = True
-            break
-        if fragment_merged:
-            continue
-
-        for index, native_table in enumerate(combined):
-            native_rect = fitz.Rect(native_table.bbox)
-            native_area = rect_area(native_rect)
-            if native_area <= 0:
-                continue
-            overlap = rect_area(fallback_rect & native_rect) / native_area
-            if overlap > matched_overlap:
-                matched_overlap = overlap
-                matched_index = index
-
-        if (
-            matched_index is not None
-            and matched_overlap >= native_replacement_overlap_ratio
-        ):
-            native_rect = fitz.Rect(combined[matched_index].bbox)
-            if rect_area(fallback_rect) >= rect_area(native_rect) * native_expansion_area_ratio:
-                combined[matched_index] = fallback_table
-            continue
-        combined.append(fallback_table)
-
-    return sorted(
-        combined,
+    # 较大的补检候选先参与覆盖判断，避免较小候选的输入顺序影响选择。
+    for fallback_table in sorted(
+        fallback_tables,
         key=lambda table: (
+            -rect_area(fitz.Rect(table.bbox)),
             fitz.Rect(table.bbox).y0,
             fitz.Rect(table.bbox).x0,
         ),
+    ):
+        fallback_rect = fitz.Rect(fallback_table.bbox)
+        fallback_area = rect_area(fallback_rect)
+        if fallback_area <= 0:
+            combined.append(fallback_table)
+            continue
+
+        replacements: list[int] = []
+        keeper: Any | None = None
+        overlapping: list[Any] = []
+        for index, existing in enumerate(combined):
+            existing_rect = fitz.Rect(existing.bbox)
+            existing_area = rect_area(existing_rect)
+            if existing_area <= 0:
+                continue
+            overlap = rect_area(fallback_rect & existing_rect)
+            if overlap <= 0:
+                continue
+            overlapping.append(existing)
+            fallback_covers_existing = (
+                contains_with_alignment(fallback_rect, existing_rect)
+                and overlap / existing_area >= native_replacement_overlap_ratio
+            )
+            existing_covers_fallback = (
+                contains_with_alignment(existing_rect, fallback_rect)
+                and overlap / fallback_area >= native_replacement_overlap_ratio
+            )
+            if (
+                fallback_covers_existing
+                and fallback_area >= existing_area * native_expansion_area_ratio
+            ):
+                replacements.append(index)
+            elif existing_covers_fallback:
+                keeper = existing
+                break
+
+        # 先确认整个选择结果，再移除被覆盖的候选，避免抑制补检时误删其他片段。
+        if keeper is not None:
+            record_decision(keeper, "keep_existing_same_or_covering_region", [fallback_table])
+            continue
+        if replacements:
+            replaced = [combined[index] for index in replacements]
+            indices = set(replacements)
+            combined = [table for index, table in enumerate(combined) if index not in indices]
+            record_decision(fallback_table, "replace_all_covered_fragments", replaced)
+            combined.append(fallback_table)
+            continue
+
+        if overlapping:
+            record_decision(fallback_table, "partial_overlap_not_concatenated", overlapping)
+            combined.append(fallback_table)
+            continue
+
+        for index, existing in enumerate(combined):
+            merged = merge_complementary_fragments(existing, fallback_table)
+            if merged is not None:
+                combined[index] = merged
+                break
+        else:
+            combined.append(fallback_table)
+
+    return sorted(
+        combined,
+        key=lambda table: (fitz.Rect(table.bbox).y0, fitz.Rect(table.bbox).x0),
     )

@@ -2,6 +2,9 @@ from __future__ import annotations
 
 import types
 import unittest
+import ast
+import inspect
+from unittest.mock import Mock
 
 import fitz
 
@@ -20,7 +23,7 @@ class TableDetectionOrchestrationTests(unittest.TestCase):
         page = types.SimpleNamespace(
             number=0,
             rect=fitz.Rect(0, 0, 100, 100),
-            find_tables=lambda **_: types.SimpleNamespace(tables=[]),
+            find_tables=Mock(return_value=types.SimpleNamespace(tables=[])),
         )
         inventory = PageInventory(
             page_number=1,
@@ -76,6 +79,26 @@ class TableDetectionOrchestrationTests(unittest.TestCase):
         self.assertEqual(claims, [])
         self.assertEqual(metadata["mode"], "whole_page_under_budget")
         self.assertEqual(metadata["tested_drawing_count"], 0)
+        page.find_tables.assert_called_once_with(paths=[], use_layout=False)
+
+    def test_all_native_detection_paths_disable_layout_inference(self) -> None:
+        """整页与簇级调用都必须显式关闭布局推理。
+
+        Both whole-page and cluster calls must explicitly disable inference.
+        """
+        tree = ast.parse(inspect.getsource(detect_tables_by_drawing_clusters))
+        calls = [
+            node for node in ast.walk(tree)
+            if isinstance(node, ast.Call)
+            and isinstance(node.func, ast.Attribute)
+            and node.func.attr == "find_tables"
+        ]
+        self.assertEqual(len(calls), 2)
+        for call in calls:
+            with self.subTest(line=call.lineno):
+                flags = [kw.value for kw in call.keywords if kw.arg == "use_layout"]
+                self.assertEqual(len(flags), 1)
+                self.assertIs(ast.literal_eval(flags[0]), False)
 
 
 if __name__ == "__main__":

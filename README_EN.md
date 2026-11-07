@@ -2,7 +2,7 @@
 
 [简体中文](README.md) | **English**
 
-[![PyPI v0.1.0](https://img.shields.io/badge/pypi-v0.1.0-3775A9?logo=pypi&logoColor=white)](https://pypi.org/project/nativePDF-structurer/)
+[![PyPI](https://img.shields.io/pypi/v/nativePDF-structurer?logo=pypi&logoColor=white)](https://pypi.org/project/nativePDF-structurer/)
 [![Python 3.12 | 3.13 | 3.14](https://img.shields.io/badge/python-3.12%20%7C%203.13%20%7C%203.14-3776AB?logo=python&logoColor=white)](https://www.python.org/)
 [![Tests](https://github.com/crunz-ai/nativePDF-structurer/actions/workflows/tests.yml/badge.svg)](https://github.com/crunz-ai/nativePDF-structurer/actions/workflows/tests.yml)
 
@@ -194,6 +194,26 @@ text found inside the figure, and a link to the table data:
 [CSV data](tables/page_017_table_01_rotated_+0.csv)
 ```
 
+## Changes in 0.1.1
+
+- Resolve same-region and containment relationships before joining table
+  candidates, avoiding duplicated table data.
+- Let a complete geometry fallback replace all covered fragments. Join
+  complementary fragments only when they do not overlap and their row and
+  column boundaries align.
+- Preserve equal values in distinct spatial rows and record candidate-selection
+  reasons in debug output.
+- Keep the reading-order algorithm unchanged and upgrade the PDF engine to the
+  official PyMuPDF 2.1 release through `pymupdf-lite==2.1`, its core distribution
+  without the layout model. Compatibility with 1.x is no longer maintained.
+
+Regression tests also cover the fixed PyMuPDF source commit
+[`28b271b`](https://github.com/pymupdf/PyMuPDF/commit/28b271bbfb42d13a084346d255d3b8b2e3b96544).
+That source environment contains upstream coordinate fixes not yet included in
+the published 2.1 release, so their table results can differ. A stable release
+containing those fixes will be validated and adopted in a separate update;
+this project does not bundle patches to PyMuPDF.
+
 ## Installation
 
 ### Requirements
@@ -204,12 +224,20 @@ text found inside the figure, and a link to the table data:
 
 | Component | Validated version | Purpose |
 |---|---:|---|
-| PyMuPDF | 1.28.0 | PDF text, images, drawings, tables, and rendering |
+| PyMuPDF (`pymupdf-lite`) | 2.1 | PDF text, images, drawings, tables, and rendering |
 | NumPy | 2.5.1 | Masks and geometry arrays |
 | OpenCV headless | 5.0.0.93 | Morphology and connected components |
 | Pillow | 12.3.0 | Image output and debug overlays |
 
+The project uses the official `pymupdf-lite` core distribution, still imported
+as `pymupdf` / `fitz`, without installing a layout model or ONNX Runtime.
+Table detection explicitly disables model-based layout analysis.
+
 > [!CAUTION]
+> Use a separate environment. Do not install `pymupdf`, `pymupdf-mid`, and
+> `pymupdf-lite` together: they provide the same core import modules and may
+> overwrite each other's files.
+>
 > Install only `opencv-python-headless`. Do not install another OpenCV
 > distribution that provides the same `cv2` module, because the packages may
 > overwrite one another or introduce binary dependency conflicts.
@@ -256,8 +284,9 @@ python -m nativePDF_structurer --help
 nativePDF-structurer --help
 ```
 
-The commands should print version `0.1.0` and display help through both the
-module entry point and the console script.
+The commands should print source version `0.1.1` and display help through both
+the module entry point and the console script. The PyPI badge at the top shows
+the published PyPI version, which may differ from the current source version.
 
 ### Run the tests
 

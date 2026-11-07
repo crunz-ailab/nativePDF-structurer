@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import ast
 import re
 import tomllib
 import unittest
@@ -20,6 +21,26 @@ def _package_name(specification: str) -> str:
 
 class PackagingMetadataTests(unittest.TestCase):
     """Prevent the lock file and project metadata from drifting silently."""
+
+    def test_source_version_matches_package_metadata(self) -> None:
+        """检查公开版本号与安装包元数据一致，不导入运行时依赖。"""
+        pyproject = tomllib.loads(
+            (PROJECT_DIR / "pyproject.toml").read_text(encoding="utf-8")
+        )
+        tree = ast.parse(
+            (PROJECT_DIR / "nativePDF_structurer" / "__init__.py")
+            .read_text(encoding="utf-8")
+        )
+        versions = [
+            ast.literal_eval(node.value)
+            for node in tree.body
+            if isinstance(node, ast.Assign)
+            and any(
+                isinstance(target, ast.Name) and target.id == "__version__"
+                for target in node.targets
+            )
+        ]
+        self.assertEqual(versions, [pyproject["project"]["version"]])
 
     def test_reference_requirements_match_runtime_dependency_names(self) -> None:
         pyproject = tomllib.loads(
@@ -44,6 +65,19 @@ class PackagingMetadataTests(unittest.TestCase):
         )
         self.assertIn("opencv-python-headless", requirements)
         self.assertNotRegex(requirements, r"(?m)^opencv-python==")
+
+    def test_pdf_engine_uses_the_pinned_model_free_distribution(self) -> None:
+        """固定核心发行包，避免安装方式不同而引入布局模型。
+
+        Pin the core distribution so installation does not add a layout model.
+        """
+        pyproject = tomllib.loads(
+            (PROJECT_DIR / "pyproject.toml").read_text(encoding="utf-8")
+        )
+        engine = "pymupdf-lite==2.1"
+        self.assertIn(engine, pyproject["project"]["dependencies"])
+        for filename in ("requirements.txt", "environment.yml"):
+            self.assertIn(engine, (PROJECT_DIR / filename).read_text(encoding="utf-8"))
 
     def test_license_metadata_and_notice_files_are_complete(self) -> None:
         pyproject = tomllib.loads(

@@ -302,6 +302,8 @@ def emit_table_candidate(
             "metadata",
             None,
         ),
+        # 将候选保留、替换或拼接的理由写入审计记录，不参与输出策略判断。
+        "candidate_merge_audit": getattr(table, "candidate_merge_audit", []),
         "bbox": [round(value, 3) for value in table_detection_bbox],
         "render_bbox": [
             round(value, 3) for value in table_render_source_bbox

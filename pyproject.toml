@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "nativePDF-structurer"
-version = "0.1.0"
+version = "0.1.1"
 description = "A zero-OCR, zero-model structurer for digital-native PDFs"
 readme = "README.md"
 license = "Apache-2.0"
@@ -22,7 +22,7 @@ classifiers = [
   "Topic :: Text Processing :: Markup",
 ]
 dependencies = [
-  "PyMuPDF>=1.24,<2",
+  "pymupdf-lite==2.1",
   "numpy>=1.24,<3",
   "opencv-python-headless>=4.8,<6",
   "Pillow>=10,<13",

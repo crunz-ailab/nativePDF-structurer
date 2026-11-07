@@ -11,7 +11,7 @@ remain internal package details.
 """
 
 __all__ = ["PageRunContext", "ParseRunContext", "RunConfig", "run"]
-__version__ = "0.1.0"
+__version__ = "0.1.1"
 
 from .config import ParseRunContext, RunConfig
 from .pipeline import run
